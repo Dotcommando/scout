@@ -2,10 +2,12 @@ import { randomUUID } from 'node:crypto';
 
 import { DiscoveryRuntimeConfiguration } from '../../src/adapters/inbound/bootstrap/discovery-runtime-configuration.js';
 import { MongoDatabaseClient } from '../../src/adapters/outbound/mongodb/mongo-database-client.js';
+import { MongoDiscoveryOutputRepository } from '../../src/adapters/outbound/mongodb/mongo-discovery-output-repository.js';
 import { MongoDiscoveryStateRepository } from '../../src/adapters/outbound/mongodb/mongo-discovery-state-repository.js';
 import { MongoLeadRepository } from '../../src/adapters/outbound/mongodb/mongo-lead-repository.js';
 import { MongoProviderQuotaRepository } from '../../src/adapters/outbound/mongodb/mongo-provider-quota-repository.js';
 import {
+  DISCOVERY_OUTPUT_STATUS,
   DISCOVERY_SCOPE_STATUS,
   DISCOVERY_SOURCE_KIND,
   DiscoveryCampaignReference,
@@ -22,6 +24,7 @@ const CAMPAIGN_ID = 'integration-campaign';
 
 describe('Mongo Discovery persistence', () => {
   let mongoDatabaseClient: MongoDatabaseClient;
+  let outputRepository: MongoDiscoveryOutputRepository;
   let leadRepository: MongoLeadRepository;
   let scopeRepository: MongoDiscoveryStateRepository;
   let quotaRepository: MongoProviderQuotaRepository;
@@ -38,11 +41,13 @@ describe('Mongo Discovery persistence', () => {
     await mongoDatabaseClient.getDatabase().dropDatabase();
 
     leadRepository = new MongoLeadRepository(mongoDatabaseClient);
+    outputRepository = new MongoDiscoveryOutputRepository(mongoDatabaseClient);
     scopeRepository = new MongoDiscoveryStateRepository(mongoDatabaseClient);
     quotaRepository = new MongoProviderQuotaRepository(mongoDatabaseClient);
 
     await Promise.all([
       leadRepository.onModuleInit(),
+      outputRepository.onModuleInit(),
       scopeRepository.onModuleInit(),
       quotaRepository.onModuleInit(),
     ]);
@@ -126,6 +131,7 @@ describe('Mongo Discovery persistence', () => {
         importedItemCount: 25,
         nextItemOffset: 25,
       },
+      25,
       {
         datasetReference: 'dataset-1',
         providerRunId: 'run-1',
@@ -148,6 +154,66 @@ describe('Mongo Discovery persistence', () => {
 
     expect(restoredProgress?.providerRun?.providerRunId).toBe('run-1');
     expect(restoredProgress?.importProgress?.nextItemOffset).toBe(25);
+    expect(restoredProgress?.reservedProviderItemCount).toBe(25);
+  });
+
+  it('atomically claims one recoverable active scope', async () => {
+    const activeCampaignId = `${CAMPAIGN_ID}-active`;
+
+    await scopeRepository.saveScopeProgress(
+      new DiscoveryScopeProgress(
+        1,
+        new DiscoveryCampaignReference(activeCampaignId),
+        1,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        25,
+        {
+          datasetReference: 'dataset-active',
+          providerRunId: 'run-active',
+          status: PROVIDER_RUN_STATUS.RUNNING,
+        },
+        'FR',
+        DISCOVERY_SCOPE_STATUS.RUNNING,
+        new Date('2026-09-01T04:00:00.000Z'),
+      ),
+    );
+
+    const claims = await Promise.all(
+      ['worker-a', 'worker-b'].map((workerId) =>
+        scopeRepository.claimNextActiveScope({
+          campaignId: activeCampaignId,
+          claimedAt: new Date('2026-09-01T04:01:00.000Z'),
+          staleClaimBefore: new Date('2026-09-01T03:56:00.000Z'),
+          workerId,
+        }),
+      ),
+    );
+
+    expect(claims.filter((claim) => claim !== null)).toHaveLength(1);
+  });
+
+  it('creates one durable output for a campaign lead identity', async () => {
+    const output = {
+      campaignId: CAMPAIGN_ID,
+      createdAt: new Date('2026-09-01T05:00:00.000Z'),
+      leadId: 'lead-1',
+      outputId: 'output-1',
+      status: DISCOVERY_OUTPUT_STATUS.PENDING,
+    };
+
+    await outputRepository.saveDiscoveryOutput(output);
+    await outputRepository.saveDiscoveryOutput(output);
+
+    expect(
+      await mongoDatabaseClient
+        .getDatabase()
+        .collection('discovery_outputs')
+        .countDocuments({ campaignId: CAMPAIGN_ID, leadId: 'lead-1' }),
+    ).toBe(1);
   });
 
   it('does not exceed the daily quota under concurrent reservations', async () => {
@@ -191,6 +257,7 @@ function createPendingScope(
     0,
     new DiscoveryCampaignReference(CAMPAIGN_ID),
     priority,
+    undefined,
     undefined,
     undefined,
     undefined,

@@ -46,6 +46,9 @@ import { HealthController } from './health.controller.js';
       inject: [
         DiscoveryCampaignConfiguration,
         SystemClock,
+        MongoDiscoveryOutputRepository,
+        ApifyGoogleMapsProviderAdapter,
+        MongoLeadRepository,
         MongoDiscoveryStateRepository,
         MongoProviderQuotaRepository,
       ],
@@ -53,12 +56,18 @@ import { HealthController } from './health.controller.js';
       useFactory: (
         campaignConfiguration: DiscoveryCampaignConfiguration,
         clock: SystemClock,
+        discoveryOutputRepository: MongoDiscoveryOutputRepository,
+        discoveryProvider: ApifyGoogleMapsProviderAdapter,
+        leadRepository: MongoLeadRepository,
         scopeRepository: MongoDiscoveryStateRepository,
         quotaRepository: MongoProviderQuotaRepository,
       ): DiscoveryProgressService =>
         new DiscoveryProgressService(
           campaignConfiguration,
           clock,
+          discoveryOutputRepository,
+          discoveryProvider,
+          leadRepository,
           scopeRepository,
           quotaRepository,
         ),

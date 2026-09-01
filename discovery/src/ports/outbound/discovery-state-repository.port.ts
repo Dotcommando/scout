@@ -6,6 +6,9 @@ export interface IDiscoveryStateRepositoryPort {
   claimNextEligibleScope(
     input: IClaimNextEligibleScopeInput,
   ): Promise<DiscoveryScopeProgress | null>;
+  claimNextActiveScope(
+    input: IClaimNextActiveScopeInput,
+  ): Promise<DiscoveryScopeProgress | null>;
   findScopeProgress(
     campaignId: string,
     scopeId: string,
@@ -20,6 +23,13 @@ export interface IDiscoveryStateRepositoryPort {
 export interface IClaimNextEligibleScopeInput {
   readonly campaignId: string;
   readonly claimedAt: Date;
+  readonly workerId: string;
+}
+
+export interface IClaimNextActiveScopeInput {
+  readonly campaignId: string;
+  readonly claimedAt: Date;
+  readonly staleClaimBefore: Date;
   readonly workerId: string;
 }
 

@@ -94,6 +94,7 @@ export class DiscoveryScopeProgress {
     public readonly completedAt: Date | undefined,
     public readonly failure: ITerminalFailureContext | undefined,
     public readonly importProgress: IImportProgress | undefined,
+    public readonly reservedProviderItemCount: number | undefined,
     public readonly providerRun: IProviderRunReference | undefined,
     public readonly scopeId: string,
     public readonly status: DISCOVERY_SCOPE_STATUS,
@@ -106,6 +107,13 @@ export class DiscoveryScopeProgress {
     }
     if (!Number.isSafeInteger(attemptCount) || attemptCount < 0) {
       throw new Error('attemptCount must be a non-negative safe integer');
+    }
+    if (
+      reservedProviderItemCount !== undefined
+      && (!Number.isSafeInteger(reservedProviderItemCount)
+        || reservedProviderItemCount < 1)
+    ) {
+      throw new Error('reservedProviderItemCount must be a positive safe integer');
     }
   }
 
@@ -142,11 +150,122 @@ export class DiscoveryScopeProgress {
   public startImport(updatedAt: Date): DiscoveryScopeProgress {
     this.requireStatus(DISCOVERY_SCOPE_STATUS.RUNNING);
 
+    if (
+      this.providerRun?.status !== PROVIDER_RUN_STATUS.SUCCEEDED
+      || this.providerRun.datasetReference === undefined
+    ) {
+      throw new Error('only completed provider runs with a dataset can be imported');
+    }
+
     return this.withState(
       DISCOVERY_SCOPE_STATUS.IMPORTING,
       updatedAt,
       undefined,
       undefined,
+    );
+  }
+
+  public recordImportProgress(
+    importProgress: IImportProgress,
+    updatedAt: Date,
+  ): DiscoveryScopeProgress {
+    this.requireStatus(DISCOVERY_SCOPE_STATUS.IMPORTING);
+
+    if (
+      !Number.isSafeInteger(importProgress.importedItemCount)
+      || importProgress.importedItemCount < 0
+      || !Number.isSafeInteger(importProgress.nextItemOffset)
+      || importProgress.nextItemOffset < 0
+    ) {
+      throw new Error('import progress must contain non-negative safe integers');
+    }
+
+    return new DiscoveryScopeProgress(
+      this.attemptCount,
+      this.campaign,
+      this.priority,
+      this.claimedAt,
+      this.claimedBy,
+      this.completedAt,
+      this.failure,
+      importProgress,
+      this.reservedProviderItemCount,
+      this.providerRun,
+      this.scopeId,
+      this.status,
+      updatedAt,
+    );
+  }
+
+  public recordProviderRun(
+    providerRun: IProviderRunReference,
+    updatedAt: Date,
+  ): DiscoveryScopeProgress {
+    this.requireStatus(DISCOVERY_SCOPE_STATUS.RUNNING);
+
+    if (this.reservedProviderItemCount === undefined) {
+      throw new Error('provider work requires a persisted quota reservation');
+    }
+
+    return new DiscoveryScopeProgress(
+      this.attemptCount,
+      this.campaign,
+      this.priority,
+      this.claimedAt,
+      this.claimedBy,
+      this.completedAt,
+      this.failure,
+      this.importProgress,
+      this.reservedProviderItemCount,
+      providerRun,
+      this.scopeId,
+      this.status,
+      updatedAt,
+    );
+  }
+
+  public reserveProviderItems(
+    reservedProviderItemCount: number,
+    updatedAt: Date,
+  ): DiscoveryScopeProgress {
+    this.requireStatus(DISCOVERY_SCOPE_STATUS.RUNNING);
+
+    if (this.reservedProviderItemCount !== undefined) {
+      return this;
+    }
+
+    return new DiscoveryScopeProgress(
+      this.attemptCount,
+      this.campaign,
+      this.priority,
+      this.claimedAt,
+      this.claimedBy,
+      this.completedAt,
+      this.failure,
+      this.importProgress,
+      reservedProviderItemCount,
+      this.providerRun,
+      this.scopeId,
+      this.status,
+      updatedAt,
+    );
+  }
+
+  public releaseClaim(updatedAt: Date): DiscoveryScopeProgress {
+    return new DiscoveryScopeProgress(
+      this.attemptCount,
+      this.campaign,
+      this.priority,
+      undefined,
+      undefined,
+      this.completedAt,
+      this.failure,
+      this.importProgress,
+      this.reservedProviderItemCount,
+      this.providerRun,
+      this.scopeId,
+      this.status,
+      updatedAt,
     );
   }
 
@@ -173,6 +292,7 @@ export class DiscoveryScopeProgress {
       completedAt,
       failure,
       this.importProgress,
+      this.reservedProviderItemCount,
       this.providerRun,
       this.scopeId,
       status,

@@ -11,6 +11,7 @@ import {
   PROVIDER_RUN_STATUS,
 } from '../../../domain/discovery/discovery-model.js';
 import {
+  IClaimNextActiveScopeInput,
   IClaimNextEligibleScopeInput,
   IDiscoveryStateRepositoryPort,
   IReleaseScopeClaimInput,
@@ -32,6 +33,7 @@ interface IDiscoveryScopeDocument {
   readonly nextItemOffset?: number;
   readonly priority: number;
   readonly providerDatasetReference?: string;
+  readonly reservedProviderItemCount?: number;
   readonly providerRunId?: string;
   readonly providerRunStatus?: PROVIDER_RUN_STATUS;
   readonly scopeId: string;
@@ -66,6 +68,42 @@ export class MongoDiscoveryStateRepository
           claimedAt: input.claimedAt,
           claimedBy: input.workerId,
           status: DISCOVERY_SCOPE_STATUS.RUNNING,
+          updatedAt: input.claimedAt,
+        },
+      },
+      {
+        returnDocument: 'after',
+        sort: {
+          priority: 1,
+          scopeId: 1,
+        },
+      },
+    );
+
+    return document === null ? null : toDiscoveryScopeProgress(document);
+  }
+
+  public async claimNextActiveScope(
+    input: IClaimNextActiveScopeInput,
+  ): Promise<DiscoveryScopeProgress | null> {
+    const document = await this.collection.findOneAndUpdate(
+      {
+        campaignId: input.campaignId,
+        status: {
+          $in: [
+            DISCOVERY_SCOPE_STATUS.RUNNING,
+            DISCOVERY_SCOPE_STATUS.IMPORTING,
+          ],
+        },
+        $or: [
+          { claimedBy: { $exists: false } },
+          { claimedAt: { $lte: input.staleClaimBefore } },
+        ],
+      },
+      {
+        $set: {
+          claimedAt: input.claimedAt,
+          claimedBy: input.workerId,
           updatedAt: input.claimedAt,
         },
       },
@@ -152,6 +190,31 @@ export class MongoDiscoveryStateRepository
       },
       {
         $set: document,
+        $unset: {
+          ...(scope.claimedAt === undefined ? { claimedAt: '' } : {}),
+          ...(scope.claimedBy === undefined ? { claimedBy: '' } : {}),
+          ...(scope.completedAt === undefined ? { completedAt: '' } : {}),
+          ...(scope.failure === undefined
+            ? {
+                failureCode: '',
+                failureMessage: '',
+                failureOccurredAt: '',
+              }
+            : {}),
+          ...(scope.importProgress === undefined
+            ? { importedItemCount: '', nextItemOffset: '' }
+            : {}),
+          ...(scope.providerRun === undefined
+            ? {
+                providerDatasetReference: '',
+                providerRunId: '',
+                providerRunStatus: '',
+              }
+            : {}),
+          ...(scope.reservedProviderItemCount === undefined
+            ? { reservedProviderItemCount: '' }
+            : {}),
+        },
       },
       {
         upsert: true,
@@ -217,8 +280,11 @@ function toDiscoveryScopeDocument(
       ? {}
       : {
           importedItemCount: scope.importProgress.importedItemCount,
-          nextItemOffset: scope.importProgress.nextItemOffset,
-        }),
+        nextItemOffset: scope.importProgress.nextItemOffset,
+      }),
+    ...(scope.reservedProviderItemCount === undefined
+      ? {}
+      : { reservedProviderItemCount: scope.reservedProviderItemCount }),
     priority: scope.priority,
     ...(scope.providerRun === undefined
       ? {}
@@ -251,6 +317,7 @@ function toDiscoveryScopeProgress(
     document.completedAt,
     failure,
     importProgress,
+    document.reservedProviderItemCount,
     providerRun,
     document.scopeId,
     document.status,

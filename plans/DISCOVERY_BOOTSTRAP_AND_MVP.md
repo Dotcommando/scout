@@ -652,7 +652,7 @@ Discovery can start a Google Maps Scraper Actor run asynchronously, persist its 
 
 ## Step 6 — Complete idempotent lead import and durable Discovery output
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -703,6 +703,17 @@ Confirm that the same source identity creates at most one “new lead” output 
 - Durable output exists for later Qualification delivery.
 - Scope completion and next-scope progression work automatically.
 - The next two pending steps have been reviewed.
+
+### Done
+
+- Extended `DiscoveryProgressService` into the persisted worker use case. It resumes an unlocked or stale active scope before claiming a new pending scope, reserves the configured provider-item cap before an Actor start, saves that reservation in the scope state, starts the Actor asynchronously, and immediately saves the returned provider run reference.
+- Added atomic recovery claims for active `RUNNING` and `IMPORTING` scopes. Each successful state update clears its temporary worker claim; a crash-held claim becomes eligible for recovery after the bounded five-minute stale-claim interval.
+- Completed provider lifecycle handling: pending/running Actor runs are revisited on later worker cycles, terminal provider states are persisted as failed scopes, and successful runs transition to import only when a dataset reference is present.
+- Added bounded imports of 25 normalized candidates per worker cycle. Import progress records the next durable offset and actual imported-item count only after lead and output persistence. Re-reading an unrecorded page is harmless because lead identity and output identity are persistent and idempotent.
+- Lead IDs and output IDs are deterministic hashes. A new `(sourceKind, externalId)` creates one generic lead and one pending provider-neutral discovery-output record; duplicate candidates in the same or later runs update the known lead but create no second output. No broker or Qualification transport was added.
+- Persisted scope state now includes the reserved provider-item count, and the MongoDB state repository atomically claims recoverable active scopes while unsetting obsolete claim/progress fields on state transitions. MongoDB integration coverage now verifies active-scope claiming and idempotent discovery-output storage in addition to the existing source-identity, progress, and quota guarantees.
+- Verified Discovery with lint, strict typecheck, ordinary offline tests (21 passing), persistence integration tests (6 passing), and build. Verified Qualification with lint, strict typecheck, tests, and build. No live Apify run was made during this step; the plan total remains one contract-capture run at a maximum of 10 places.
+- Reviewed Steps 7-8. Step 7 can now exercise the new recoverable-active claim path, terminal provider handling, and persistence-output failure diagnostics with fakes/fixtures only. Step 8 has the necessary application path for the explicitly opt-in, 20-place-capped live smoke flow; deploying that build is intentionally deferred to that step to avoid starting a paid Actor outside the approved E2E action. No pending-plan changes are required.
 
 ---
 

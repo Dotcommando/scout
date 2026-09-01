@@ -8,6 +8,17 @@ export interface IDiscoveryProviderPort {
   startProviderRun(input: IStartProviderRunInput): Promise<IProviderRunReference>;
 }
 
+export class DiscoveryProviderError extends Error {
+  public constructor(
+    public readonly retryable: boolean,
+    message: string,
+    cause: unknown,
+  ) {
+    super(message, { cause });
+    this.name = 'DiscoveryProviderError';
+  }
+}
+
 export interface IGetProviderRunStatusInput {
   readonly providerRunId: string;
 }

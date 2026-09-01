@@ -1,20 +1,40 @@
-import { DiscoveryWorker } from '../../adapters/inbound/scheduler/discovery-worker.js';
 import {
   DISCOVERY_SCOPE_STATUS,
   DISCOVERY_SOURCE_KIND,
   DiscoveryCampaignReference,
   DiscoveryScopeProgress,
+  IProviderRunReference,
+  Lead,
+  PROVIDER_RUN_STATUS,
 } from '../../domain/discovery/discovery-model.js';
 import { IClockPort } from '../../ports/outbound/clock.port.js';
 import {
   IDiscoveryCampaignConfigurationPort,
 } from '../../ports/outbound/discovery-campaign-configuration.port.js';
 import {
+  IDiscoveryOutputRepositoryPort,
+  ISaveDiscoveryOutputInput,
+} from '../../ports/outbound/discovery-output-repository.port.js';
+import {
+  IDiscoveryProviderPort,
+  IGetProviderRunStatusInput,
+  IProviderLeadCandidate,
+  IProviderResultPage,
+  IReadProviderResultsInput,
+  IStartProviderRunInput,
+} from '../../ports/outbound/discovery-provider.port.js';
+import {
+  IClaimNextActiveScopeInput,
   IClaimNextEligibleScopeInput,
   IDiscoveryStateRepositoryPort,
   IReleaseScopeClaimInput,
   ISynchronizeConfiguredScopesInput,
 } from '../../ports/outbound/discovery-state-repository.port.js';
+import {
+  ILeadRepositoryPort,
+  ILeadUpsertResult,
+  LEAD_UPSERT_OUTCOME,
+} from '../../ports/outbound/lead-repository.port.js';
 import {
   IProviderQuotaRepositoryPort,
   IProviderQuotaReservation,
@@ -37,16 +57,8 @@ const CAMPAIGN_CONFIGURATION: IDiscoveryCampaignConfiguration = {
     maxProviderItemsPerRun: 50,
   },
   scopes: [
-    {
-      id: 'GB',
-      label: 'United Kingdom',
-      priority: 1,
-    },
-    {
-      id: 'IE',
-      label: 'Ireland',
-      priority: 2,
-    },
+    { id: 'GB', label: 'United Kingdom', priority: 1 },
+    { id: 'IE', label: 'Ireland', priority: 2 },
   ],
   searchQueries: ['independent hotel'],
   source: {
@@ -57,136 +69,140 @@ const CAMPAIGN_CONFIGURATION: IDiscoveryCampaignConfiguration = {
 };
 
 describe('DiscoveryProgressService', () => {
-  it('selects the first configured scope deterministically', async () => {
+  it('persists a quota reservation and provider run before returning', async () => {
     const harness = createHarness();
-    const result = await harness.service.advanceDiscoveryWork(createInput());
-
-    expect(result).toEqual({
-      outcome: DISCOVERY_WORK_OUTCOME.SCOPE_CLAIMED,
-      reservedItemCount: 50,
-      scopeId: 'GB',
-    });
-  });
-
-  it('prevents overlapping worker ticks from claiming the same scope twice', async () => {
-    const harness = createHarness({
-      scopes: [CAMPAIGN_CONFIGURATION.scopes[0]],
-    });
-    const worker = new DiscoveryWorker(harness.service);
-    const outcomes = await Promise.all([worker.triggerWork(), worker.triggerWork()]);
-
-    expect(outcomes).toContain(DISCOVERY_WORK_OUTCOME.SCOPE_CLAIMED);
-    expect(outcomes).toContain(null);
-  });
-
-  it('does not restart completed work and advances to the next scope', async () => {
-    const harness = createHarness();
-    const firstResult = await harness.service.advanceDiscoveryWork(createInput());
-    const firstScope = await harness.state.findScopeProgress('campaign-a', 'GB');
-
-    if (firstScope === null) {
-      throw new Error('GB should have been claimed');
-    }
-
-    await harness.state.saveScopeProgress(
-      firstScope
-        .startImport(harness.clock.getCurrentTime())
-        .complete(harness.clock.getCurrentTime()),
-    );
-
-    const secondResult = await harness.service.advanceDiscoveryWork(createInput());
-
-    expect(firstResult.scopeId).toBe('GB');
-    expect(secondResult.scopeId).toBe('IE');
-  });
-
-  it('becomes idle once all persisted scopes are complete', async () => {
-    const harness = createHarness();
-
-    await harness.state.synchronizeConfiguredScopes({
-      campaignId: 'campaign-a',
-      configurationHash: 'config-hash',
-      scopes: CAMPAIGN_CONFIGURATION.scopes.map((scope) => ({
-        priority: scope.priority,
-        scopeId: scope.id,
-      })),
-      synchronizedAt: harness.clock.getCurrentTime(),
-    });
-
-    for (const scopeId of ['GB', 'IE']) {
-      const scope = await harness.state.claimNextEligibleScope({
-        campaignId: 'campaign-a',
-        claimedAt: harness.clock.getCurrentTime(),
-        workerId: 'worker-a',
-      });
-
-      if (scope?.scopeId !== scopeId) {
-        throw new Error('expected deterministic pending scope');
-      }
-
-      await harness.state.saveScopeProgress(
-        scope
-          .startImport(harness.clock.getCurrentTime())
-          .complete(harness.clock.getCurrentTime()),
-      );
-    }
-
-    const result = await harness.service.advanceDiscoveryWork(createInput());
-
-    expect(result.outcome).toBe(DISCOVERY_WORK_OUTCOME.IDLE);
-  });
-
-  it('releases the scope and becomes budget-exhausted without completing it', async () => {
-    const harness = createHarness({
-      quotaAvailable: false,
-      scopes: [CAMPAIGN_CONFIGURATION.scopes[0]],
-    });
     const result = await harness.service.advanceDiscoveryWork(createInput());
     const scope = await harness.state.findScopeProgress('campaign-a', 'GB');
 
-    expect(result.outcome).toBe(DISCOVERY_WORK_OUTCOME.BUDGET_EXHAUSTED);
-    expect(scope?.status).toBe(DISCOVERY_SCOPE_STATUS.PENDING);
-  });
-
-  it('makes released work eligible again in the next UTC quota window', async () => {
-    const harness = createHarness({
-      quotaAvailable: false,
-      scopes: [CAMPAIGN_CONFIGURATION.scopes[0]],
-    });
-
-    await harness.service.advanceDiscoveryWork(createInput());
-    harness.quota.isAvailable = true;
-    harness.clock.currentTime = new Date('2026-09-02T00:00:00.000Z');
-
-    const result = await harness.service.advanceDiscoveryWork(createInput());
-
     expect(result).toEqual({
-      outcome: DISCOVERY_WORK_OUTCOME.SCOPE_CLAIMED,
+      outcome: DISCOVERY_WORK_OUTCOME.PROVIDER_RUN_STARTED,
       reservedItemCount: 50,
       scopeId: 'GB',
     });
+    expect(scope?.providerRun?.providerRunId).toBe('run-1');
+    expect(scope?.reservedProviderItemCount).toBe(50);
+    expect(scope?.claimedBy).toBeUndefined();
   });
 
-  it('enforces active, importing, completed, and terminal-failure transitions', () => {
-    const activeScope = createActiveScope();
-    const importingScope = activeScope.startImport(
-      new Date('2026-09-01T01:00:00.000Z'),
-    );
-    const completedScope = importingScope.complete(
-      new Date('2026-09-01T02:00:00.000Z'),
-    );
-    const failedScope = activeScope.fail(
-      {
-        message: 'provider failed permanently',
-        occurredAt: new Date('2026-09-01T03:00:00.000Z'),
-      },
-      new Date('2026-09-01T03:00:00.000Z'),
-    );
+  it('revisits a persisted active run and waits while the provider is pending', async () => {
+    const harness = createHarness({
+      runStatuses: [PROVIDER_RUN_STATUS.PENDING],
+    });
 
-    expect(importingScope.status).toBe(DISCOVERY_SCOPE_STATUS.IMPORTING);
-    expect(completedScope.status).toBe(DISCOVERY_SCOPE_STATUS.DONE);
-    expect(failedScope.status).toBe(DISCOVERY_SCOPE_STATUS.FAILED);
-    expect(() => activeScope.complete(new Date())).toThrow();
+    await harness.service.advanceDiscoveryWork(createInput());
+    const result = await harness.service.advanceDiscoveryWork(createInput());
+
+    expect(result).toEqual({
+      outcome: DISCOVERY_WORK_OUTCOME.PROVIDER_RUN_PENDING,
+      scopeId: 'GB',
+    });
+    expect(harness.provider.statusRequests).toBe(1);
+  });
+
+  it('imports a completed page idempotently and emits output only for new identities', async () => {
+    const candidate: IProviderLeadCandidate = {
+      externalId: 'provider-place-1',
+      name: 'Example Lead',
+    };
+    const harness = createHarness({
+      pages: [
+        {
+          items: [candidate, candidate],
+          nextOffset: null,
+        },
+      ],
+      runStatuses: [PROVIDER_RUN_STATUS.SUCCEEDED],
+    });
+
+    await harness.service.advanceDiscoveryWork(createInput());
+    const result = await harness.service.advanceDiscoveryWork(createInput());
+    const scope = await harness.state.findScopeProgress('campaign-a', 'GB');
+
+    expect(result).toEqual({
+      outcome: DISCOVERY_WORK_OUTCOME.IMPORT_COMPLETED,
+      scopeId: 'GB',
+    });
+    expect(scope?.status).toBe(DISCOVERY_SCOPE_STATUS.DONE);
+    expect(harness.leads.leads).toHaveLength(1);
+    expect(harness.outputs.outputs).toHaveLength(1);
+    expect(harness.provider.readRequests).toBe(1);
+  });
+
+  it('continues from durable page progress after reconstruction', async () => {
+    const harness = createHarness({
+      pages: [
+        {
+          items: [{ externalId: 'provider-place-1', name: 'First' }],
+          nextOffset: 1,
+        },
+        {
+          items: [{ externalId: 'provider-place-2', name: 'Second' }],
+          nextOffset: null,
+        },
+      ],
+      runStatuses: [PROVIDER_RUN_STATUS.SUCCEEDED],
+    });
+
+    await harness.service.advanceDiscoveryWork(createInput());
+    const firstImport = await harness.service.advanceDiscoveryWork(createInput());
+    const restartedService = createService(harness);
+    const secondImport = await restartedService.advanceDiscoveryWork(createInput());
+    const scope = await harness.state.findScopeProgress('campaign-a', 'GB');
+
+    expect(firstImport.outcome).toBe(DISCOVERY_WORK_OUTCOME.IMPORT_PROGRESS_SAVED);
+    expect(secondImport.outcome).toBe(DISCOVERY_WORK_OUTCOME.IMPORT_COMPLETED);
+    expect(scope?.importProgress?.nextItemOffset).toBe(2);
+    expect(harness.outputs.outputs).toHaveLength(2);
+  });
+
+  it('moves to the next configured scope after finishing the current one', async () => {
+    const harness = createHarness({
+      pages: [{ items: [], nextOffset: null }],
+      runStatuses: [PROVIDER_RUN_STATUS.SUCCEEDED],
+    });
+
+    await harness.service.advanceDiscoveryWork(createInput());
+    await harness.service.advanceDiscoveryWork(createInput());
+    const nextResult = await harness.service.advanceDiscoveryWork(createInput());
+
+    expect(nextResult).toEqual({
+      outcome: DISCOVERY_WORK_OUTCOME.PROVIDER_RUN_STARTED,
+      reservedItemCount: 50,
+      scopeId: 'IE',
+    });
+  });
+
+  it('does not create a second output when a later scope returns a known identity', async () => {
+    const knownCandidate: IProviderLeadCandidate = {
+      externalId: 'provider-place-1',
+      name: 'Known Lead',
+    };
+    const harness = createHarness({
+      pages: [
+        { items: [knownCandidate], nextOffset: null },
+        { items: [knownCandidate], nextOffset: null },
+      ],
+      runStatuses: [
+        PROVIDER_RUN_STATUS.SUCCEEDED,
+        PROVIDER_RUN_STATUS.SUCCEEDED,
+      ],
+    });
+
+    await harness.service.advanceDiscoveryWork(createInput());
+    await harness.service.advanceDiscoveryWork(createInput());
+    await harness.service.advanceDiscoveryWork(createInput());
+    await harness.service.advanceDiscoveryWork(createInput());
+
+    expect(harness.leads.leads).toHaveLength(1);
+    expect(harness.outputs.outputs).toHaveLength(1);
+  });
+
+  it('does not start a provider run when the daily quota is unavailable', async () => {
+    const harness = createHarness({ quotaAvailable: false });
+    const result = await harness.service.advanceDiscoveryWork(createInput());
+
+    expect(result.outcome).toBe(DISCOVERY_WORK_OUTCOME.BUDGET_EXHAUSTED);
+    expect(harness.provider.startRequests).toBe(0);
   });
 });
 
@@ -197,15 +213,28 @@ function createHarness(options: ITestHarnessOptions = {}): ITestHarness {
   };
   const campaignConfiguration = new FakeCampaignConfiguration(configuration);
   const clock = new FakeClock(new Date('2026-09-01T00:00:00.000Z'));
-  const state = new FakeDiscoveryStateRepository();
+  const outputs = new FakeDiscoveryOutputRepository();
+  const provider = new FakeDiscoveryProvider(
+    options.runStatuses ?? [PROVIDER_RUN_STATUS.SUCCEEDED],
+    options.pages ?? [{ items: [], nextOffset: null }],
+  );
   const quota = new FakeProviderQuotaRepository(options.quotaAvailable ?? true);
+  const leads = new FakeLeadRepository();
+  const state = new FakeDiscoveryStateRepository();
 
   return {
+    campaignConfiguration,
     clock,
+    leads,
+    outputs,
+    provider,
     quota,
     service: new DiscoveryProgressService(
       campaignConfiguration,
       clock,
+      outputs,
+      provider,
+      leads,
       state,
       quota,
     ),
@@ -214,38 +243,36 @@ function createHarness(options: ITestHarnessOptions = {}): ITestHarness {
 }
 
 function createInput() {
-  return {
-    correlationId: 'correlation-a',
-    workerId: 'worker-a',
-  };
+  return { correlationId: 'correlation-a', workerId: 'worker-a' };
 }
 
-function createActiveScope(): DiscoveryScopeProgress {
-  return new DiscoveryScopeProgress(
-    1,
-    new DiscoveryCampaignReference('campaign-a'),
-    1,
-    new Date('2026-09-01T00:00:00.000Z'),
-    'worker-a',
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    'GB',
-    DISCOVERY_SCOPE_STATUS.RUNNING,
-    new Date('2026-09-01T00:00:00.000Z'),
+function createService(harness: ITestHarness): DiscoveryProgressService {
+  return new DiscoveryProgressService(
+    harness.campaignConfiguration,
+    harness.clock,
+    harness.outputs,
+    harness.provider,
+    harness.leads,
+    harness.state,
+    harness.quota,
   );
 }
 
 interface ITestHarness {
+  readonly campaignConfiguration: FakeCampaignConfiguration;
   readonly clock: FakeClock;
+  readonly leads: FakeLeadRepository;
+  readonly outputs: FakeDiscoveryOutputRepository;
+  readonly provider: FakeDiscoveryProvider;
   readonly quota: FakeProviderQuotaRepository;
   readonly service: DiscoveryProgressService;
   readonly state: FakeDiscoveryStateRepository;
 }
 
 interface ITestHarnessOptions {
+  readonly pages?: readonly IProviderResultPage[];
   readonly quotaAvailable?: boolean;
+  readonly runStatuses?: readonly PROVIDER_RUN_STATUS[];
   readonly scopes?: readonly IDiscoveryScopeConfiguration[];
 }
 
@@ -258,15 +285,136 @@ class FakeCampaignConfiguration implements IDiscoveryCampaignConfigurationPort {
 }
 
 class FakeClock implements IClockPort {
-  public constructor(public currentTime: Date) {}
+  public constructor(private readonly currentTime: Date) {}
 
   public getCurrentTime(): Date {
     return this.currentTime;
   }
 }
 
+class FakeDiscoveryOutputRepository implements IDiscoveryOutputRepositoryPort {
+  public readonly outputs: ISaveDiscoveryOutputInput[] = [];
+
+  public async saveDiscoveryOutput(input: ISaveDiscoveryOutputInput): Promise<void> {
+    if (this.outputs.some((output) => output.outputId === input.outputId)) {
+      return;
+    }
+
+    this.outputs.push(input);
+  }
+}
+
+class FakeDiscoveryProvider implements IDiscoveryProviderPort {
+  public readRequests = 0;
+  public startRequests = 0;
+  public statusRequests = 0;
+  private pageIndex = 0;
+  private statusIndex = 0;
+
+  public constructor(
+    private readonly runStatuses: readonly PROVIDER_RUN_STATUS[],
+    private readonly pages: readonly IProviderResultPage[],
+  ) {}
+
+  public async getRunStatus(
+    input: IGetProviderRunStatusInput,
+  ): Promise<IProviderRunReference> {
+    this.statusRequests += 1;
+
+    return {
+      datasetReference: 'dataset-1',
+      providerRunId: input.providerRunId,
+      status: this.nextRunStatus(),
+    };
+  }
+
+  public async readProviderResults(
+    input: IReadProviderResultsInput,
+  ): Promise<IProviderResultPage> {
+    this.readRequests += 1;
+
+    if (input.datasetReference !== 'dataset-1') {
+      throw new Error('unexpected dataset reference');
+    }
+
+    const page = this.pages[this.pageIndex];
+
+    this.pageIndex += 1;
+
+    if (page === undefined) {
+      throw new Error('unexpected provider result page');
+    }
+
+    return page;
+  }
+
+  public async startProviderRun(
+    input: IStartProviderRunInput,
+  ): Promise<IProviderRunReference> {
+    this.startRequests += 1;
+
+    if (input.maximumItemCount > 50) {
+      throw new Error('requested provider cap is too high');
+    }
+
+    return {
+      datasetReference: 'dataset-1',
+      providerRunId: `run-${this.startRequests}`,
+      status: PROVIDER_RUN_STATUS.PENDING,
+    };
+  }
+
+  private nextRunStatus(): PROVIDER_RUN_STATUS {
+    const status = this.runStatuses[this.statusIndex] ?? PROVIDER_RUN_STATUS.SUCCEEDED;
+
+    this.statusIndex += 1;
+
+    return status;
+  }
+}
+
 class FakeDiscoveryStateRepository implements IDiscoveryStateRepositoryPort {
   private readonly scopes = new Map<string, DiscoveryScopeProgress>();
+
+  public async claimNextActiveScope(
+    input: IClaimNextActiveScopeInput,
+  ): Promise<DiscoveryScopeProgress | null> {
+    const scope = [...this.scopes.values()]
+      .filter(
+        (candidate) =>
+          candidate.campaign.campaignId === input.campaignId
+          && (candidate.status === DISCOVERY_SCOPE_STATUS.IMPORTING
+            || candidate.status === DISCOVERY_SCOPE_STATUS.RUNNING)
+          && (candidate.claimedBy === undefined
+            || (candidate.claimedAt !== undefined
+              && candidate.claimedAt <= input.staleClaimBefore)),
+      )
+      .sort((left, right) => left.priority - right.priority)[0];
+
+    if (scope === undefined) {
+      return null;
+    }
+
+    const claimedScope = new DiscoveryScopeProgress(
+      scope.attemptCount,
+      scope.campaign,
+      scope.priority,
+      input.claimedAt,
+      input.workerId,
+      scope.completedAt,
+      scope.failure,
+      scope.importProgress,
+      scope.reservedProviderItemCount,
+      scope.providerRun,
+      scope.scopeId,
+      scope.status,
+      input.claimedAt,
+    );
+
+    this.scopes.set(scope.scopeId, claimedScope);
+
+    return claimedScope;
+  }
 
   public async claimNextEligibleScope(
     input: IClaimNextEligibleScopeInput,
@@ -277,11 +425,7 @@ class FakeDiscoveryStateRepository implements IDiscoveryStateRepositoryPort {
           candidate.campaign.campaignId === input.campaignId
           && candidate.status === DISCOVERY_SCOPE_STATUS.PENDING,
       )
-      .sort(
-        (left, right) =>
-          left.priority - right.priority
-          || left.scopeId.localeCompare(right.scopeId),
-      )[0];
+      .sort((left, right) => left.priority - right.priority)[0];
 
     if (scope === undefined) {
       return null;
@@ -296,6 +440,7 @@ class FakeDiscoveryStateRepository implements IDiscoveryStateRepositoryPort {
       scope.completedAt,
       scope.failure,
       scope.importProgress,
+      scope.reservedProviderItemCount,
       scope.providerRun,
       scope.scopeId,
       DISCOVERY_SCOPE_STATUS.RUNNING,
@@ -319,11 +464,7 @@ class FakeDiscoveryStateRepository implements IDiscoveryStateRepositoryPort {
   public async releaseScopeClaim(input: IReleaseScopeClaimInput): Promise<boolean> {
     const scope = await this.findScopeProgress(input.campaignId, input.scopeId);
 
-    if (
-      scope === null
-      || scope.status !== DISCOVERY_SCOPE_STATUS.RUNNING
-      || scope.claimedBy !== input.workerId
-    ) {
+    if (scope === null || scope.claimedBy !== input.workerId) {
       return false;
     }
 
@@ -338,6 +479,7 @@ class FakeDiscoveryStateRepository implements IDiscoveryStateRepositoryPort {
         scope.completedAt,
         scope.failure,
         scope.importProgress,
+        scope.reservedProviderItemCount,
         scope.providerRun,
         scope.scopeId,
         DISCOVERY_SCOPE_STATUS.PENDING,
@@ -356,9 +498,7 @@ class FakeDiscoveryStateRepository implements IDiscoveryStateRepositoryPort {
     input: ISynchronizeConfiguredScopesInput,
   ): Promise<void> {
     for (const configuredScope of input.scopes) {
-      const existingScope = this.scopes.get(configuredScope.scopeId);
-
-      if (existingScope !== undefined) {
+      if (this.scopes.has(configuredScope.scopeId)) {
         continue;
       }
 
@@ -374,6 +514,7 @@ class FakeDiscoveryStateRepository implements IDiscoveryStateRepositoryPort {
           undefined,
           undefined,
           undefined,
+          undefined,
           configuredScope.scopeId,
           DISCOVERY_SCOPE_STATUS.PENDING,
           input.synchronizedAt,
@@ -383,8 +524,31 @@ class FakeDiscoveryStateRepository implements IDiscoveryStateRepositoryPort {
   }
 }
 
+class FakeLeadRepository implements ILeadRepositoryPort {
+  public readonly leads: Lead[] = [];
+
+  public async upsertLead(lead: Lead): Promise<ILeadUpsertResult> {
+    const existingLead = this.leads.find(
+      (candidate) =>
+        candidate.sourceIdentity.externalId === lead.sourceIdentity.externalId
+        && candidate.sourceIdentity.sourceKind === lead.sourceIdentity.sourceKind,
+    );
+
+    if (existingLead !== undefined) {
+      return {
+        leadId: existingLead.leadId,
+        outcome: LEAD_UPSERT_OUTCOME.EXISTING,
+      };
+    }
+
+    this.leads.push(lead);
+
+    return { leadId: lead.leadId, outcome: LEAD_UPSERT_OUTCOME.INSERTED };
+  }
+}
+
 class FakeProviderQuotaRepository implements IProviderQuotaRepositoryPort {
-  public constructor(public isAvailable: boolean) {}
+  public constructor(private readonly isAvailable: boolean) {}
 
   public async reserveDailyQuota(
     input: IReserveDailyQuotaInput,

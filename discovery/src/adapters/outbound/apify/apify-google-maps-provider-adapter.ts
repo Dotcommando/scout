@@ -5,6 +5,7 @@ import {
   PROVIDER_RUN_STATUS,
 } from '../../../domain/discovery/discovery-model.js';
 import {
+  DiscoveryProviderError,
   IDiscoveryProviderPort,
   IGetProviderRunStatusInput,
   IProviderLeadCandidate,
@@ -124,14 +125,14 @@ export interface IApifyProviderErrorContext {
   readonly statusCode?: number;
 }
 
-export class ApifyProviderError extends Error {
+export class ApifyProviderError extends DiscoveryProviderError {
   public constructor(
     public readonly operation: string,
     public readonly retryable: boolean,
     public readonly context: IApifyProviderErrorContext,
     cause: unknown,
   ) {
-    super(`Apify ${operation} failed`, { cause });
+    super(retryable, `Apify ${operation} failed`, cause);
     this.name = 'ApifyProviderError';
   }
 }
@@ -241,7 +242,8 @@ function createApifyProviderError(
 
   return new ApifyProviderError(
     operation,
-    isRetryable(providerContext.statusCode),
+    !(error instanceof ApifyProviderContractError)
+      && isRetryable(providerContext.statusCode),
     {
       ...context,
       ...(providerContext.providerCode === undefined
