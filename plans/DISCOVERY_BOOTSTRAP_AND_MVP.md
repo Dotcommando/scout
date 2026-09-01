@@ -505,7 +505,7 @@ Discovery understands campaigns, configured scopes, generic leads, source identi
 
 ## Step 4 — Implement restart-safe Discovery orchestration and automatic scope progression
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -558,6 +558,17 @@ Use fake provider/outbound ports to verify:
 - Exhausting the daily provider quota cannot start additional paid work until the next quota window.
 - Worker orchestration is tested independently from Apify.
 - The next three pending steps have been reviewed.
+
+### Done
+
+- Added `DiscoveryProgressService`, which synchronizes campaign configuration into durable scope records without resetting terminal scopes, atomically claims the configured lowest-priority pending scope, and returns explicit `scope-claimed`, `idle`, or `budget-exhausted` outcomes.
+- New config scopes are inserted as `PENDING`; existing scopes retain their lifecycle state while receiving the current configuration hash and priority. The MongoDB adapter can atomically release an unstarted claim after budget exhaustion, so it never marks the scope Done or strands it in Running.
+- Extended persisted quota reservation to reserve at most the remaining daily allowance atomically, including a partial final reservation when the remaining allowance is lower than the per-run cap.
+- Added explicit domain transitions for active provider work (`RUNNING`), importing, completion, and terminal failure, each with invariant checks.
+- Added a Nest scheduler adapter with a one-process overlap guard. It is only a driving adapter; cross-process correctness continues to rely on persistent atomic claims and quota updates.
+- Added fake-port application tests for deterministic first-scope selection, overlapping ticks, restart-safe completed scopes, next-scope selection, idle behavior, budget exhaustion/release, next-UTC-window eligibility, and state-transition invariants. These tests do not invoke Apify.
+- Verified Discovery with lint, strict typecheck, all tests, build, and persistence integration tests; verified Qualification's lint, strict typecheck, tests, and build.
+- Reviewed Steps 5–7. Step 5 can attach Apify behind the existing provider port and use the reserved quota passed forward by Step 4. Step 6 can turn those run states into idempotent import/output behavior. Step 7 will validate controlled provider and persistence failures once those adapters exist. No pending-plan changes are required.
 
 ---
 

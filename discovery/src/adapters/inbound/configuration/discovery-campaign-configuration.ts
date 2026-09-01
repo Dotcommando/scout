@@ -12,6 +12,7 @@ import {
   IDiscoverySourceConfiguration,
 } from '../../../app/discovery/discovery-campaign-configuration.js';
 import { DISCOVERY_SOURCE_KIND } from '../../../domain/discovery/discovery-model.js';
+import { IDiscoveryCampaignConfigurationPort } from '../../../ports/outbound/discovery-campaign-configuration.port.js';
 
 const CAMPAIGN_CONFIGURATION_FILE_NAME = 'campaign.yaml';
 
@@ -29,11 +30,16 @@ export class CampaignConfigurationValidationError extends Error {
 }
 
 @Injectable()
-export class DiscoveryCampaignConfiguration {
+export class DiscoveryCampaignConfiguration
+  implements IDiscoveryCampaignConfigurationPort {
   public readonly value: IDiscoveryCampaignConfiguration;
 
   public constructor() {
     this.value = loadDiscoveryCampaignConfiguration();
+  }
+
+  public getCampaignConfiguration(): IDiscoveryCampaignConfiguration {
+    return this.value;
   }
 }
 

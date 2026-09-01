@@ -13,6 +13,8 @@ import {
 import {
   IClaimNextEligibleScopeInput,
   IDiscoveryStateRepositoryPort,
+  IReleaseScopeClaimInput,
+  ISynchronizeConfiguredScopesInput,
 } from '../../../ports/outbound/discovery-state-repository.port.js';
 import { MongoDatabaseClient } from './mongo-database-client.js';
 
@@ -22,6 +24,7 @@ interface IDiscoveryScopeDocument {
   readonly claimedAt?: Date;
   readonly claimedBy?: string;
   readonly completedAt?: Date;
+  readonly configurationHash?: string;
   readonly failureCode?: string;
   readonly failureMessage?: string;
   readonly failureOccurredAt?: Date;
@@ -102,6 +105,31 @@ export class MongoDiscoveryStateRepository
     );
   }
 
+  public async releaseScopeClaim(
+    input: IReleaseScopeClaimInput,
+  ): Promise<boolean> {
+    const result = await this.collection.updateOne(
+      {
+        campaignId: input.campaignId,
+        claimedBy: input.workerId,
+        scopeId: input.scopeId,
+        status: DISCOVERY_SCOPE_STATUS.RUNNING,
+      },
+      {
+        $set: {
+          status: DISCOVERY_SCOPE_STATUS.PENDING,
+          updatedAt: input.releasedAt,
+        },
+        $unset: {
+          claimedAt: '',
+          claimedBy: '',
+        },
+      },
+    );
+
+    return result.modifiedCount === 1;
+  }
+
   public async findScopeProgress(
     campaignId: string,
     scopeId: string,
@@ -128,6 +156,39 @@ export class MongoDiscoveryStateRepository
       {
         upsert: true,
       },
+    );
+  }
+
+  public async synchronizeConfiguredScopes(
+    input: ISynchronizeConfiguredScopesInput,
+  ): Promise<void> {
+    if (input.scopes.length === 0) {
+      return;
+    }
+
+    await this.collection.bulkWrite(
+      input.scopes.map((scope) => ({
+        updateOne: {
+          filter: {
+            campaignId: input.campaignId,
+            scopeId: scope.scopeId,
+          },
+          update: {
+            $set: {
+              configurationHash: input.configurationHash,
+              priority: scope.priority,
+              updatedAt: input.synchronizedAt,
+            },
+            $setOnInsert: {
+              attemptCount: 0,
+              campaignId: input.campaignId,
+              scopeId: scope.scopeId,
+              status: DISCOVERY_SCOPE_STATUS.PENDING,
+            },
+          },
+          upsert: true,
+        },
+      })),
     );
   }
 }

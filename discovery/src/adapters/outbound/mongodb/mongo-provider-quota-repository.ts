@@ -10,6 +10,7 @@ import { MongoDatabaseClient } from './mongo-database-client.js';
 
 interface IProviderQuotaUsageDocument {
   readonly campaignId: string;
+  readonly lastReservedItemCount?: number;
   readonly quotaDay: string;
   readonly reservedItemCount: number;
   readonly updatedAt: Date;
@@ -55,29 +56,49 @@ export class MongoProviderQuotaRepository
       {
         campaignId: input.campaignId,
         quotaDay: input.quotaDay,
-        reservedItemCount: {
-          $lte: input.dailyItemLimit - input.requestedItemCount,
-        },
       },
-      {
-        $inc: {
-          reservedItemCount: input.requestedItemCount,
+      [
+        {
+          $set: {
+            lastReservedItemCount: {
+              $min: [
+                input.requestedItemCount,
+                {
+                  $max: [
+                    0,
+                    {
+                      $subtract: [
+                        input.dailyItemLimit,
+                        '$reservedItemCount',
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          },
         },
-        $set: {
-          updatedAt: new Date(),
+        {
+          $set: {
+            reservedItemCount: {
+              $add: ['$reservedItemCount', '$lastReservedItemCount'],
+            },
+            updatedAt: new Date(),
+          },
         },
-      },
+      ],
       {
         returnDocument: 'after',
       },
     );
 
-    return document === null
+    return document?.lastReservedItemCount === undefined
+      || document.lastReservedItemCount === 0
       ? null
       : {
           campaignId: document.campaignId,
           quotaDay: document.quotaDay,
-          reservedItemCount: document.reservedItemCount,
+          reservedItemCount: document.lastReservedItemCount,
         };
   }
 

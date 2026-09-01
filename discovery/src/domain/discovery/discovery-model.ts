@@ -108,6 +108,77 @@ export class DiscoveryScopeProgress {
       throw new Error('attemptCount must be a non-negative safe integer');
     }
   }
+
+  public complete(completedAt: Date): DiscoveryScopeProgress {
+    this.requireStatus(DISCOVERY_SCOPE_STATUS.IMPORTING);
+
+    return this.withState(
+      DISCOVERY_SCOPE_STATUS.DONE,
+      completedAt,
+      completedAt,
+      undefined,
+    );
+  }
+
+  public fail(
+    failure: ITerminalFailureContext,
+    updatedAt: Date,
+  ): DiscoveryScopeProgress {
+    if (
+      this.status !== DISCOVERY_SCOPE_STATUS.RUNNING
+      && this.status !== DISCOVERY_SCOPE_STATUS.IMPORTING
+    ) {
+      throw new Error('only active scopes can fail');
+    }
+
+    return this.withState(
+      DISCOVERY_SCOPE_STATUS.FAILED,
+      updatedAt,
+      undefined,
+      failure,
+    );
+  }
+
+  public startImport(updatedAt: Date): DiscoveryScopeProgress {
+    this.requireStatus(DISCOVERY_SCOPE_STATUS.RUNNING);
+
+    return this.withState(
+      DISCOVERY_SCOPE_STATUS.IMPORTING,
+      updatedAt,
+      undefined,
+      undefined,
+    );
+  }
+
+  private requireStatus(expectedStatus: DISCOVERY_SCOPE_STATUS): void {
+    if (this.status !== expectedStatus) {
+      throw new Error(
+        `scope status ${this.status} cannot transition from expected ${expectedStatus}`,
+      );
+    }
+  }
+
+  private withState(
+    status: DISCOVERY_SCOPE_STATUS,
+    updatedAt: Date,
+    completedAt: Date | undefined,
+    failure: ITerminalFailureContext | undefined,
+  ): DiscoveryScopeProgress {
+    return new DiscoveryScopeProgress(
+      this.attemptCount,
+      this.campaign,
+      this.priority,
+      this.claimedAt,
+      this.claimedBy,
+      completedAt,
+      failure,
+      this.importProgress,
+      this.providerRun,
+      this.scopeId,
+      status,
+      updatedAt,
+    );
+  }
 }
 
 function requireNonEmptyValue(value: string, fieldName: string): void {
