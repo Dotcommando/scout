@@ -12,6 +12,8 @@ const SENSITIVE_FIELD_NAMES = new Set([
 ]);
 
 export interface IDiscoveryStructuredLogEntry {
+  readonly attempt?: number;
+  readonly campaignId?: string;
   readonly className: string;
   readonly correlationId: string;
   readonly error?: ILoggedError;
@@ -20,8 +22,11 @@ export interface IDiscoveryStructuredLogEntry {
   readonly message?: unknown;
   readonly method: string;
   readonly operation: string;
+  readonly providerRunId?: string;
   readonly retryable: boolean;
   readonly service: string;
+  readonly sourceKind?: string;
+  readonly scopeId?: string;
 }
 
 interface ILoggedError {
@@ -31,13 +36,18 @@ interface ILoggedError {
 }
 
 interface IDiscoveryFailureLogInput {
+  readonly attempt?: number;
+  readonly campaignId?: string;
   readonly className: string;
   readonly correlationId: string;
   readonly error: unknown;
   readonly input?: unknown;
   readonly method: string;
   readonly operation: string;
+  readonly providerRunId?: string;
   readonly retryable: boolean;
+  readonly sourceKind?: string;
+  readonly scopeId?: string;
 }
 
 export class DiscoveryStructuredLogger implements LoggerService {
@@ -90,6 +100,8 @@ export function writeDiscoveryFailureLog(
   input: IDiscoveryFailureLogInput,
 ): void {
   writeDiscoveryLog({
+    ...(input.attempt === undefined ? {} : { attempt: input.attempt }),
+    ...(input.campaignId === undefined ? {} : { campaignId: input.campaignId }),
     className: input.className,
     correlationId: input.correlationId,
     error: toLoggedError(input.error),
@@ -97,13 +109,18 @@ export function writeDiscoveryFailureLog(
     level: 'error',
     method: input.method,
     operation: input.operation,
+    ...(input.providerRunId === undefined
+      ? {}
+      : { providerRunId: input.providerRunId }),
     retryable: input.retryable,
     service: 'discovery',
+    ...(input.sourceKind === undefined ? {} : { sourceKind: input.sourceKind }),
+    ...(input.scopeId === undefined ? {} : { scopeId: input.scopeId }),
   });
 }
 
 export function writeDiscoveryLog(entry: IDiscoveryStructuredLogEntry): void {
-  const output = `${JSON.stringify(sanitizeLogInput(entry))}\n`;
+  const output = `${serializeDiscoveryLogEntry(entry)}\n`;
 
   if (entry.level === 'error' || entry.level === 'fatal') {
     process.stderr.write(output);
@@ -112,6 +129,12 @@ export function writeDiscoveryLog(entry: IDiscoveryStructuredLogEntry): void {
   }
 
   process.stdout.write(output);
+}
+
+export function serializeDiscoveryLogEntry(
+  entry: IDiscoveryStructuredLogEntry,
+): string {
+  return JSON.stringify(sanitizeLogInput(entry));
 }
 
 export function sanitizeLogInput(value: unknown): unknown {

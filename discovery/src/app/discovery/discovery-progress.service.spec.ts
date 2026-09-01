@@ -16,6 +16,7 @@ import {
   ISaveDiscoveryOutputInput,
 } from '../../ports/outbound/discovery-output-repository.port.js';
 import {
+  DiscoveryProviderError,
   IDiscoveryProviderPort,
   IGetProviderRunStatusInput,
   IProviderLeadCandidate,
@@ -47,6 +48,7 @@ import {
 import {
   DISCOVERY_WORK_OUTCOME,
   DiscoveryProgressService,
+  DiscoveryWorkError,
 } from './discovery-progress.service.js';
 
 const CAMPAIGN_CONFIGURATION: IDiscoveryCampaignConfiguration = {
@@ -204,6 +206,78 @@ describe('DiscoveryProgressService', () => {
     expect(result.outcome).toBe(DISCOVERY_WORK_OUTCOME.BUDGET_EXHAUSTED);
     expect(harness.provider.startRequests).toBe(0);
   });
+
+  it('records a terminal provider failure without retrying the scope', async () => {
+    const harness = createHarness({
+      runStatuses: [PROVIDER_RUN_STATUS.FAILED],
+    });
+
+    await harness.service.advanceDiscoveryWork(createInput());
+    const result = await harness.service.advanceDiscoveryWork(createInput());
+    const scope = await harness.state.findScopeProgress('campaign-a', 'GB');
+
+    expect(result.outcome).toBe(DISCOVERY_WORK_OUTCOME.TERMINAL_PROVIDER_FAILURE);
+    expect(scope?.status).toBe(DISCOVERY_SCOPE_STATUS.FAILED);
+    expect(scope?.failure?.code).toBe('provider-run-failed');
+  });
+
+  it('preserves scope context for a controlled unauthorized provider failure', async () => {
+    const harness = createHarness({
+      providerError: new DiscoveryProviderError(
+        false,
+        'provider rejected the token',
+        new Error('unauthorized'),
+      ),
+    });
+
+    try {
+      await harness.service.advanceDiscoveryWork(createInput());
+      throw new Error('expected provider failure');
+    } catch (error: unknown) {
+      if (!(error instanceof DiscoveryWorkError)) {
+        throw error;
+      }
+
+      expect(error.context).toMatchObject({
+        attempt: 1,
+        campaignId: 'campaign-a',
+        scopeId: 'GB',
+        sourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
+      });
+      expect(error.retryable).toBe(false);
+    }
+  });
+
+  it('preserves scope context for a controlled persistence failure', async () => {
+    const harness = createHarness({
+      leadError: new Error('MongoDB unavailable'),
+      pages: [
+        {
+          items: [{ externalId: 'provider-place-1', name: 'Example Lead' }],
+          nextOffset: null,
+        },
+      ],
+    });
+
+    await harness.service.advanceDiscoveryWork(createInput());
+
+    try {
+      await harness.service.advanceDiscoveryWork(createInput());
+      throw new Error('expected persistence failure');
+    } catch (error: unknown) {
+      if (!(error instanceof DiscoveryWorkError)) {
+        throw error;
+      }
+
+      expect(error.context).toMatchObject({
+        attempt: 1,
+        campaignId: 'campaign-a',
+        providerRunId: 'run-1',
+        scopeId: 'GB',
+      });
+      expect(error.retryable).toBe(true);
+    }
+  });
 });
 
 function createHarness(options: ITestHarnessOptions = {}): ITestHarness {
@@ -215,11 +289,12 @@ function createHarness(options: ITestHarnessOptions = {}): ITestHarness {
   const clock = new FakeClock(new Date('2026-09-01T00:00:00.000Z'));
   const outputs = new FakeDiscoveryOutputRepository();
   const provider = new FakeDiscoveryProvider(
+    options.providerError,
     options.runStatuses ?? [PROVIDER_RUN_STATUS.SUCCEEDED],
     options.pages ?? [{ items: [], nextOffset: null }],
   );
   const quota = new FakeProviderQuotaRepository(options.quotaAvailable ?? true);
-  const leads = new FakeLeadRepository();
+  const leads = new FakeLeadRepository(options.leadError);
   const state = new FakeDiscoveryStateRepository();
 
   return {
@@ -270,7 +345,9 @@ interface ITestHarness {
 }
 
 interface ITestHarnessOptions {
+  readonly leadError?: Error;
   readonly pages?: readonly IProviderResultPage[];
+  readonly providerError?: Error;
   readonly quotaAvailable?: boolean;
   readonly runStatuses?: readonly PROVIDER_RUN_STATUS[];
   readonly scopes?: readonly IDiscoveryScopeConfiguration[];
@@ -312,6 +389,7 @@ class FakeDiscoveryProvider implements IDiscoveryProviderPort {
   private statusIndex = 0;
 
   public constructor(
+    private readonly providerError: Error | undefined,
     private readonly runStatuses: readonly PROVIDER_RUN_STATUS[],
     private readonly pages: readonly IProviderResultPage[],
   ) {}
@@ -319,6 +397,7 @@ class FakeDiscoveryProvider implements IDiscoveryProviderPort {
   public async getRunStatus(
     input: IGetProviderRunStatusInput,
   ): Promise<IProviderRunReference> {
+    this.throwProviderError();
     this.statusRequests += 1;
 
     return {
@@ -331,6 +410,7 @@ class FakeDiscoveryProvider implements IDiscoveryProviderPort {
   public async readProviderResults(
     input: IReadProviderResultsInput,
   ): Promise<IProviderResultPage> {
+    this.throwProviderError();
     this.readRequests += 1;
 
     if (input.datasetReference !== 'dataset-1') {
@@ -351,6 +431,7 @@ class FakeDiscoveryProvider implements IDiscoveryProviderPort {
   public async startProviderRun(
     input: IStartProviderRunInput,
   ): Promise<IProviderRunReference> {
+    this.throwProviderError();
     this.startRequests += 1;
 
     if (input.maximumItemCount > 50) {
@@ -370,6 +451,12 @@ class FakeDiscoveryProvider implements IDiscoveryProviderPort {
     this.statusIndex += 1;
 
     return status;
+  }
+
+  private throwProviderError(): void {
+    if (this.providerError !== undefined) {
+      throw this.providerError;
+    }
   }
 }
 
@@ -527,7 +614,13 @@ class FakeDiscoveryStateRepository implements IDiscoveryStateRepositoryPort {
 class FakeLeadRepository implements ILeadRepositoryPort {
   public readonly leads: Lead[] = [];
 
+  public constructor(private readonly leadError: Error | undefined) {}
+
   public async upsertLead(lead: Lead): Promise<ILeadUpsertResult> {
+    if (this.leadError !== undefined) {
+      throw this.leadError;
+    }
+
     const existingLead = this.leads.find(
       (candidate) =>
         candidate.sourceIdentity.externalId === lead.sourceIdentity.externalId

@@ -26,7 +26,13 @@ import { HealthController } from './health.controller.js';
     MongoLeadRepository,
     MongoProviderQuotaRepository,
     SystemClock,
-    DiscoveryWorker,
+    {
+      inject: [DiscoveryProgressService],
+      provide: DiscoveryWorker,
+      useFactory: (
+        discoveryProgressService: DiscoveryProgressService,
+      ): DiscoveryWorker => new DiscoveryWorker(discoveryProgressService),
+    },
     {
       inject: [
         DiscoveryRuntimeConfiguration,

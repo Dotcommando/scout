@@ -59,7 +59,32 @@ export interface IAdvanceDiscoveryWorkResult {
   readonly scopeId?: string;
 }
 
-export class DiscoveryProgressService {
+export interface IDiscoveryWorkFailureContext {
+  readonly attempt?: number;
+  readonly campaignId: string;
+  readonly providerRunId?: string;
+  readonly scopeId?: string;
+  readonly sourceKind: DISCOVERY_SOURCE_KIND;
+}
+
+export class DiscoveryWorkError extends Error {
+  public constructor(
+    public readonly context: IDiscoveryWorkFailureContext,
+    public readonly retryable: boolean,
+    cause: unknown,
+  ) {
+    super('Discovery work failed', { cause });
+    this.name = 'DiscoveryWorkError';
+  }
+}
+
+export interface IDiscoveryWorkUseCase {
+  advanceDiscoveryWork(
+    input: IAdvanceDiscoveryWorkInput,
+  ): Promise<IAdvanceDiscoveryWorkResult>;
+}
+
+export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
   public constructor(
     private readonly campaignConfiguration: IDiscoveryCampaignConfigurationPort,
     private readonly clock: IClockPort,
@@ -71,6 +96,29 @@ export class DiscoveryProgressService {
   ) {}
 
   public async advanceDiscoveryWork(
+    input: IAdvanceDiscoveryWorkInput,
+  ): Promise<IAdvanceDiscoveryWorkResult> {
+    try {
+      return await this.advanceDiscoveryWorkInternal(input);
+    } catch (error: unknown) {
+      if (error instanceof DiscoveryWorkError) {
+        throw error;
+      }
+
+      const configuration = this.campaignConfiguration.getCampaignConfiguration();
+
+      throw new DiscoveryWorkError(
+        {
+          campaignId: configuration.campaignId,
+          sourceKind: configuration.source.kind,
+        },
+        true,
+        error,
+      );
+    }
+  }
+
+  private async advanceDiscoveryWorkInternal(
     input: IAdvanceDiscoveryWorkInput,
   ): Promise<IAdvanceDiscoveryWorkResult> {
     const configuration = this.campaignConfiguration.getCampaignConfiguration();
@@ -220,7 +268,7 @@ export class DiscoveryProgressService {
   ): Promise<IAdvanceDiscoveryWorkResult> {
     try {
       if (scope.status === DISCOVERY_SCOPE_STATUS.IMPORTING) {
-        return this.importProviderResults(scope, currentTime);
+        return await this.importProviderResults(scope, currentTime);
       }
       if (scope.providerRun === undefined) {
         const reservedScope = await this.reserveProviderItems(
@@ -278,7 +326,7 @@ export class DiscoveryProgressService {
         );
       }
 
-      return this.importProviderResults(
+      return await this.importProviderResults(
         updatedScope.startImport(currentTime),
         currentTime,
       );
@@ -294,7 +342,7 @@ export class DiscoveryProgressService {
         );
       }
 
-      throw error;
+      throw this.createDiscoveryWorkError(scope, error);
     }
   }
 
@@ -390,21 +438,44 @@ export class DiscoveryProgressService {
       throw new Error('provider run cannot start without a persisted quota reservation');
     }
 
-    const providerRun = await this.discoveryProvider.startProviderRun({
-      maximumItemCount,
-      scopeId: scope.scopeId,
-      searchQueries,
-    });
+    try {
+      const providerRun = await this.discoveryProvider.startProviderRun({
+        maximumItemCount,
+        scopeId: scope.scopeId,
+        searchQueries,
+      });
 
-    await this.scopeRepository.saveScopeProgress(
-      scope.recordProviderRun(providerRun, currentTime).releaseClaim(currentTime),
-    );
+      await this.scopeRepository.saveScopeProgress(
+        scope.recordProviderRun(providerRun, currentTime).releaseClaim(currentTime),
+      );
+    } catch (error: unknown) {
+      throw this.createDiscoveryWorkError(scope, error);
+    }
 
     return {
       outcome: DISCOVERY_WORK_OUTCOME.PROVIDER_RUN_STARTED,
       reservedItemCount: maximumItemCount,
       scopeId: scope.scopeId,
     };
+  }
+
+  private createDiscoveryWorkError(
+    scope: DiscoveryScopeProgress,
+    error: unknown,
+  ): DiscoveryWorkError {
+    return new DiscoveryWorkError(
+      {
+        attempt: scope.attemptCount,
+        campaignId: scope.campaign.campaignId,
+        ...(scope.providerRun === undefined
+          ? {}
+          : { providerRunId: scope.providerRun.providerRunId }),
+        scopeId: scope.scopeId,
+        sourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
+      },
+      error instanceof DiscoveryProviderError ? error.retryable : true,
+      error,
+    );
   }
 }
 

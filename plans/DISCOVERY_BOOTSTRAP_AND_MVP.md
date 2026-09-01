@@ -719,7 +719,7 @@ Confirm that the same source identity creates at most one “new lead” output 
 
 ## Step 7 — Verify failure diagnostics, recovery, and Discovery quality gates
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -785,6 +785,15 @@ Inspect representative structured error logs directly.
 - No forbidden TypeScript escape hatches were introduced.
 - Both services pass their quality gates.
 - The final pending step has been reviewed.
+
+### Done
+
+- Added `DiscoveryWorkError` with campaign, scope, provider-run, attempt, source-kind, and retryability context. The scheduler now retains the inbound correlation ID on failure and writes that context as structured JSON fields and safe replay input instead of producing an uncorrelated generic error record.
+- Extended structured-log serialization and tests to prove that operation context is retained while nested secret fields are centrally redacted. A worker adapter test inspects the emitted JSON error record for campaign, scope, provider run, and retryability.
+- Added offline controlled-failure coverage for invalid campaign configuration, MongoDB connection failure, an unauthorized/non-retryable provider failure, terminal provider status, malformed provider data, and a persistence failure during import. The MongoDB failure is mocked at the driver boundary; no provider network call is made.
+- Kept and re-ran restart, idempotency, unique-index, active-claim, quota, and output tests. Normal Discovery tests contain no live Apify action; the only plan live run remains the earlier 10-place contract capture.
+- Verified Discovery with lint, strict typecheck, ordinary tests (27 passing), persistence integration tests (6 passing), and build. Verified Qualification with lint, strict typecheck, tests, and build. `git diff --check` passed; the static TypeScript scan found only the existing valid `dotenv` import alias.
+- Reviewed Step 8 against the completed code. The final smoke flow can rebuild/start Discovery only as part of its explicitly opt-in, 20-place-capped live E2E action, then observe persisted restart recovery and independent Qualification availability. No pending-plan changes are required.
 
 ---
 
