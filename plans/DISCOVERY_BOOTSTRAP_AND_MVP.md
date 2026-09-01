@@ -799,7 +799,7 @@ Inspect representative structured error logs directly.
 
 ## Step 8 — Run the end-to-end Discovery smoke flow and close the plan
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -861,6 +861,15 @@ A small configured Discovery scope is processed from config through Apify, Mongo
 - Known limitations and deferred work are documented.
 - No unplanned required work remains.
 - The plan has a complete execution record.
+
+### Done
+
+- Added the explicit `npm run test:e2e:live` command. It reads the dedicated E2E configuration, creates the isolated campaign `independent-accommodation-europe-live-e2e`, enforces a 20-item daily and per-run limit inside the application configuration, uses the real MongoDB adapters and Apify adapter, and never runs as part of ordinary tests or builds.
+- Executed one live E2E Actor run, `4fWnnAzl8r4obWyqU`, with purpose `e2e`, current plan run count `2`, and a maximum of `20` requested places. It completed successfully. The persisted E2E scope is `done`, with `importedItemCount: 20` and `nextItemOffset: 20`; MongoDB contains 20 E2E output records with 20 distinct lead IDs.
+- The live command reconstructed `DiscoveryProgressService` after the Actor run had started before continuing its poll/import loop, demonstrating persisted run/progress recovery without relying on process memory. It used the same persisted scope/run state through completion.
+- Rebuilt both Compose images and confirmed Discovery and Qualification readiness. Stopped Qualification and confirmed Discovery remained ready; restarted Qualification and confirmed its readiness. Discovery was then stopped before its ordinary minute scheduler could start a non-E2E production-campaign Actor run. Qualification remains running and healthy.
+- Completed final quality gates: Discovery lint, strict typecheck, ordinary tests (27 passing), persistence integration tests (6 passing), and build; Qualification lint, strict typecheck, tests, and build; `git diff --check` passed.
+- Live-call execution record for the whole plan: contract capture `1 x 10` places and E2E `1 x 20` places, for `2` Actor runs and `30` requested places total. This remains within the maximum allowance of 5 runs / 100 requested places. No additional plan steps are required.
 
 ---
 
