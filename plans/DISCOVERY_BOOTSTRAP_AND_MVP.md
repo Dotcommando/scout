@@ -286,7 +286,7 @@ Rules:
 
 ## Step 1 — Inspect the repository and bootstrap both NestJS microservices
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -342,6 +342,15 @@ Use the actual package-manager commands established by the repository.
 - Root `../.gitignore` correctly handles the multi-service repository.
 - The actual baseline and any deviations from the expected structure are recorded in this step's Done section.
 - The next three pending steps have been reviewed against the real repository.
+
+### Done
+
+- The actual baseline contained the root guidance and plan files, root `.env` files and `.gitignore`, plus only `.npmrc`, ESLint, and TypeScript configuration in `discovery/` and `qualification/`. Neither service had package metadata, source code, Docker/MongoDB setup, nor existing application files.
+- Preserved the supplied service configuration and added `strict: true` to both TypeScript configurations to meet the strict-mode requirement. The source layout produces `dist/main.js`, so each package starts that generated entry point directly.
+- Added isolated NestJS package manifests and lock files, ESM Jest configuration, minimal bootstrap modules, independent tests, and the prescribed Hexagonal Architecture directory roots in both services. Discovery listens on port 3001 and Qualification on port 3002 pending typed runtime configuration in Step 2.
+- Updated the root `.gitignore` to ignore nested build output, dependencies, coverage, logs, and temporary directories while retaining the existing root environment-file handling.
+- Verified independently in both service directories: `npm install`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, and `npm run start`. Each start command opened its expected listening port and was then stopped.
+- Reviewed Steps 2–4 against the baseline. Their assumptions remain valid: Step 2 must establish the root environment, operational adapters, and MongoDB ownership; Step 3 can add Discovery configuration and durable state on that foundation; Step 4 depends on the state and ports introduced by Step 3. No pending-plan changes are required.
 
 ---
 

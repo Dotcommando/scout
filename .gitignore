@@ -2,9 +2,13 @@
 /dist
 /node_modules
 /build
+**/dist/
+**/node_modules/
+**/build/
 
 # Logs
 logs
+**/logs/
 *.log
 npm-debug.log*
 pnpm-debug.log*
@@ -17,6 +21,7 @@ lerna-debug.log*
 
 # Tests
 /coverage
+**/coverage/
 /.nyc_output
 
 # IDEs and editors
@@ -45,6 +50,8 @@ lerna-debug.log*
 # temp directory
 .temp
 .tmp
+**/.temp/
+**/.tmp/
 
 # Runtime data
 pids
