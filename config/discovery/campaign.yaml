@@ -1,5 +1,5 @@
 version: 1
-campaignId: independent-accommodation-europe
+campaignId: europe-gb-ie
 source:
   kind: google-maps
   actorId: compass/crawler-google-places
