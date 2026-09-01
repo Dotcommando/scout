@@ -2,14 +2,45 @@ import 'reflect-metadata';
 
 import { NestFactory } from '@nestjs/core';
 
+import { QualificationRuntimeConfiguration } from '../bootstrap/qualification-runtime-configuration.js';
+import {
+  QualificationStructuredLogger,
+  writeQualificationFailureLog,
+  writeQualificationLog,
+} from '../bootstrap/qualification-structured-logger.js';
 import { BootstrapModule } from './bootstrap.module.js';
 
-const QUALIFICATION_PORT = 3002;
-
 async function bootstrap(): Promise<void> {
-  const application = await NestFactory.create(BootstrapModule);
+  const application = await NestFactory.create(BootstrapModule, {
+    logger: new QualificationStructuredLogger(),
+  });
+  const runtimeConfiguration = application.get(
+    QualificationRuntimeConfiguration,
+  );
 
-  await application.listen(QUALIFICATION_PORT);
+  application.enableShutdownHooks();
+  await application.listen(runtimeConfiguration.port);
+
+  writeQualificationLog({
+    className: 'Main',
+    correlationId: crypto.randomUUID(),
+    level: 'info',
+    method: 'bootstrap',
+    operation: 'start-service',
+    retryable: false,
+    service: 'qualification',
+  });
 }
 
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  writeQualificationFailureLog({
+    className: 'Main',
+    correlationId: crypto.randomUUID(),
+    error,
+    method: 'bootstrap',
+    operation: 'start-service',
+    retryable: false,
+  });
+
+  process.exitCode = 1;
+});

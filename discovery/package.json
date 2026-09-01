@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json --incremental false",
     "lint": "eslint .",
-    "start": "node dist/main.js",
+    "start": "node dist/adapters/inbound/http/main.js",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
     "typecheck": "tsc --noEmit"
   },
@@ -14,6 +14,8 @@
     "@nestjs/common": "11.1.12",
     "@nestjs/core": "11.1.12",
     "@nestjs/platform-express": "11.1.12",
+    "dotenv": "17.2.3",
+    "mongodb": "7.0.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2"
   },

@@ -2,14 +2,43 @@ import 'reflect-metadata';
 
 import { NestFactory } from '@nestjs/core';
 
+import { DiscoveryRuntimeConfiguration } from '../bootstrap/discovery-runtime-configuration.js';
+import {
+  DiscoveryStructuredLogger,
+  writeDiscoveryFailureLog,
+  writeDiscoveryLog,
+} from '../bootstrap/discovery-structured-logger.js';
 import { BootstrapModule } from './bootstrap.module.js';
 
-const DISCOVERY_PORT = 3001;
-
 async function bootstrap(): Promise<void> {
-  const application = await NestFactory.create(BootstrapModule);
+  const application = await NestFactory.create(BootstrapModule, {
+    logger: new DiscoveryStructuredLogger(),
+  });
+  const runtimeConfiguration = application.get(DiscoveryRuntimeConfiguration);
 
-  await application.listen(DISCOVERY_PORT);
+  application.enableShutdownHooks();
+  await application.listen(runtimeConfiguration.port);
+
+  writeDiscoveryLog({
+    className: 'Main',
+    correlationId: crypto.randomUUID(),
+    level: 'info',
+    method: 'bootstrap',
+    operation: 'start-service',
+    retryable: false,
+    service: 'discovery',
+  });
 }
 
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  writeDiscoveryFailureLog({
+    className: 'Main',
+    correlationId: crypto.randomUUID(),
+    error,
+    method: 'bootstrap',
+    operation: 'start-service',
+    retryable: false,
+  });
+
+  process.exitCode = 1;
+});

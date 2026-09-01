@@ -356,7 +356,7 @@ Use the actual package-manager commands established by the repository.
 
 ## Step 2 — Establish root environment, service configuration, MongoDB ownership, and operational baseline
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -406,6 +406,18 @@ Both services use the root environment convention, validate their own runtime co
 - Liveness, readiness, and graceful shutdown work.
 - Database ownership is physically separated by logical database.
 - The next three pending steps have been reviewed.
+
+### Done
+
+- Established the root `.env` and `.env.example` convention with service ports, MongoDB host ports, and separate `scout_discovery` / `scout_qualification` URIs. Discovery alone validates and consumes `APIFY_API_TOKEN`; no service-level `.env` files exist.
+- Added service-owned validated runtime-configuration adapters that load the root environment locally and honour Docker-injected values. Invalid fields fail fast with the environment-file path, field name, reason, structured context, and stack trace without logging secret values.
+- Added Docker Compose with MongoDB and independent Discovery/Qualification images. Compose injects only Discovery's non-secret runtime values plus the Apify token; Qualification has no Apify environment entry.
+- Added independent MongoDB adapters, `/health/live` and `/health/ready` endpoints, structured JSON stdout/stderr logging with recursive known-secret redaction, and Nest graceful-shutdown hooks in both services.
+- Corrected the TypeScript output layout so each service deterministically builds and starts `dist/adapters/inbound/http/main.js`.
+- Verified both services with `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build`. Controlled invalid-port startup checks produced structured errors with the failed field and stack trace, without exposing secrets.
+- Built and started the full Compose stack. MongoDB became healthy; both services returned `ok` from liveness and readiness. Ping checks succeeded independently for `scout_discovery` and `scout_qualification`.
+- Stopped Qualification with Docker Compose: its log recorded `onModuleDestroy` and MongoDB close after `SIGTERM`; Discovery remained live and ready. Qualification was restarted and its health checks returned `ok` again.
+- Reviewed Steps 3–5 against the live baseline. Step 3 can now build its domain and persistence ports on the verified MongoDB adapter foundation; Step 4 depends on the persistent records from Step 3; Step 5 remains correctly deferred until the generic port and state model exist. No pending-plan changes are required.
 
 ---
 
