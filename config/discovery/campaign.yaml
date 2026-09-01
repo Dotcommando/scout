@@ -1,0 +1,17 @@
+version: 1
+campaignId: independent-accommodation-europe
+source:
+  kind: google-maps
+  actorId: compass/crawler-google-places
+searchQueries:
+  - independent hotel
+scopes:
+  - id: GB
+    label: United Kingdom
+    priority: 1
+  - id: IE
+    label: Ireland
+    priority: 2
+limits:
+  dailyProviderItemLimit: 500
+  maxProviderItemsPerRun: 100

@@ -423,7 +423,7 @@ Both services use the root environment convention, validate their own runtime co
 
 ## Step 3 — Define Discovery configuration, domain model, ports, and persistence
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -489,6 +489,17 @@ Discovery understands campaigns, configured scopes, generic leads, source identi
 - Daily provider quota is durable and atomically reservable.
 - Core persistence integration tests pass.
 - The next three pending steps have been reviewed.
+
+### Done
+
+- Added `config/discovery/campaign.yaml` as the root source of Discovery business configuration. It contains the initial vertical-specific search query only as configuration, two prioritized geographic scopes, `google-maps` as the source kind, the configured actor identifier, a daily provider-item limit of 500, and a per-run limit of 100.
+- Implemented strict YAML parsing and validation with exact file and field paths, validation of unique scopes and bounds, and a stable SHA-256 configuration hash. The loader supports both local development and the Compose-mounted configuration path.
+- Added provider-neutral Discovery domain models for campaign references, source identity, leads, scope progress, provider run state, import progress, terminal failure context, and all closed state sets as enums. Domain code has no NestJS, MongoDB, Apify, or hotel dependency.
+- Added narrow inbound/outbound contracts for scope claiming, lead persistence, discovery state, provider access, durable output, daily quota reservation, and time.
+- Implemented MongoDB adapters with correctness indexes: unique `(sourceKind, externalId)` lead identity; unique campaign/scope state; deterministic priority claim index; unique campaign/day quota usage; and unique durable output identities. Scope claims use atomic `findOneAndUpdate`; quota reservation first ensures the usage record and then atomically increments only within the configured limit.
+- Added MongoDB integration tests covering repeated source upsert, concurrent scope claims, persisted provider/import progress across repository reconstruction, and concurrent quota reservation. The integration test uses only `scout_discovery_step3_integration` and drops that explicit test database on completion.
+- Verified Discovery with `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, and `npm run test:integration`; verified Qualification's lint, typecheck, tests, and build; rebuilt Discovery in Compose; confirmed health endpoints; and inspected the live unique source-identity index.
+- Reviewed Steps 4–6. Step 4 can now synchronize configured scopes and drive the established atomic claim/quota ports. Step 5 can implement the provider behind the already-defined provider port. Step 6 can consume the existing upsert, progress, and durable-output repositories. No pending-plan changes are required.
 
 ---
 

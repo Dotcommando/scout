@@ -21,6 +21,8 @@ services:
       DISCOVERY_PORT: '3001'
     ports:
       - '${DISCOVERY_PORT}:3001'
+    volumes:
+      - ./config/discovery:/app/config/discovery:ro
 
   qualification:
     build:

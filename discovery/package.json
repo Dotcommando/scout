@@ -8,6 +8,7 @@
     "lint": "eslint .",
     "start": "node dist/adapters/inbound/http/main.js",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
+    "test:integration": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand test/integration",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -17,7 +18,8 @@
     "dotenv": "17.2.3",
     "mongodb": "7.0.0",
     "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.2"
+    "rxjs": "7.8.2",
+    "yaml": "2.8.1"
   },
   "devDependencies": {
     "@eslint/js": "9.39.1",
