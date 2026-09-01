@@ -1,0 +1,14 @@
+{
+  "run": {
+    "id": "sanitized-provider-run-id",
+    "status": "SUCCEEDED",
+    "defaultDatasetId": "sanitized-dataset-id"
+  },
+  "datasetItem": {
+    "placeId": "sanitized-place-id",
+    "title": "Sanitized Example Lead",
+    "address": "1 Example Street, Example City, United Kingdom",
+    "phone": "+44 20 0000 0000",
+    "website": "https://example.test/lead"
+  }
+}

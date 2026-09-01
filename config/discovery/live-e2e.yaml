@@ -1,0 +1,5 @@
+purpose: e2e
+scopeId: GB
+searchQueries:
+  - independent hotel
+maximumItemCount: 20

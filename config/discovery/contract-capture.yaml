@@ -1,0 +1,5 @@
+purpose: contract-capture
+scopeId: GB
+searchQueries:
+  - independent hotel
+maximumItemCount: 10

@@ -18,8 +18,11 @@ export interface IProviderResultPage {
 }
 
 export interface IProviderLeadCandidate {
+  readonly address?: string;
   readonly externalId: string;
   readonly name: string;
+  readonly phoneNumber?: string;
+  readonly websiteUrl?: string;
 }
 
 export interface IReadProviderResultsInput {

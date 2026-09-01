@@ -574,7 +574,7 @@ Use fake provider/outbound ports to verify:
 
 ## Step 5 — Integrate Apify Google Maps Scraper behind the Discovery provider port
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -636,6 +636,17 @@ Discovery can start a Google Maps Scraper Actor run asynchronously, persist its 
 - Contract capture and live E2E have separate hard safety caps.
 - Expensive enrichment remains disabled.
 - The next three pending steps have been reviewed.
+
+### Done
+
+- Added the isolated `ApifyGoogleMapsProviderAdapter` backed by the official `apify-client`. It starts `compass/crawler-google-places` asynchronously, maps the Actor lifecycle into the internal provider-status enum, and reads dataset items with explicit offset/limit pages. Apify DTOs remain inside the adapter.
+- The Actor input is constructed from the configured source, scope, and queries. It divides the reserved run maximum across queries, and explicitly disables web results, images, contacts, directories, place-detail crawling, social profiles, competitor analysis, and lead enrichment.
+- Added typed `ApifyProviderError` and `ApifyProviderContractError` errors. Operational errors preserve the safe operation/run/dataset/status/code context and retryability; malformed provider data is rejected before crossing the outbound port.
+- Added explicit, opt-in live configurations and commands: `npm run capture:contract` has a hard maximum of 10 places; `npm run test:e2e:live` has a separately enforced maximum of 20. Neither command is part of ordinary test, build, or CI scripts.
+- Executed the single permitted contract-capture Actor run: `4u1dJaqJLfo8YDwSM`, purpose `contract-capture`, maximum requested places `10`, plan live-run count `1`. The run succeeded and its dataset was retrieved through the adapter in one bounded page containing 10 items. The checked-in fixture is sanitized and contains no provider token or captured business data.
+- Added offline adapter parsing tests using only the sanitized fixture, including a typed malformed-item failure. The normal test suite made no Apify calls.
+- Verified Discovery with lint, strict typecheck, ordinary tests (19 passing), build, and persistence integration tests (4 passing). Verified Qualification remains independent with lint, strict typecheck, tests, and build. Rebuilt Discovery's Docker image and confirmed `/health/live` and `/health/ready` return `status: ok`.
+- Reviewed Steps 6-8 against the implemented ports, provider adapter, stored run references, quota reservation, and fixture. Step 6 can now persist the adapter run ID immediately after scope claim and import the already-normalized bounded pages. Step 7 can test the typed provider errors and fixture parser without live access. Step 8 can use the explicit, 20-place-capped live E2E command only after Step 6 completes. No pending-plan changes are required.
 
 ---
 

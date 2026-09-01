@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 
 import { DiscoveryProgressService } from '../../../app/discovery/discovery-progress.service.js';
+import { ApifyGoogleMapsProviderAdapter } from '../../outbound/apify/apify-google-maps-provider-adapter.js';
 import { MongoDatabaseClient } from '../../outbound/mongodb/mongo-database-client.js';
 import { MongoDiscoveryOutputRepository } from '../../outbound/mongodb/mongo-discovery-output-repository.js';
 import { MongoDiscoveryStateRepository } from '../../outbound/mongodb/mongo-discovery-state-repository.js';
@@ -26,6 +27,21 @@ import { HealthController } from './health.controller.js';
     MongoProviderQuotaRepository,
     SystemClock,
     DiscoveryWorker,
+    {
+      inject: [
+        DiscoveryRuntimeConfiguration,
+        DiscoveryCampaignConfiguration,
+      ],
+      provide: ApifyGoogleMapsProviderAdapter,
+      useFactory: (
+        runtimeConfiguration: DiscoveryRuntimeConfiguration,
+        campaignConfiguration: DiscoveryCampaignConfiguration,
+      ): ApifyGoogleMapsProviderAdapter =>
+        new ApifyGoogleMapsProviderAdapter(
+          runtimeConfiguration,
+          campaignConfiguration,
+        ),
+    },
     {
       inject: [
         DiscoveryCampaignConfiguration,
