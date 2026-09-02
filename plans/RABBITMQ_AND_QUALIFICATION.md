@@ -82,7 +82,7 @@ own inbox/execution/decision/output records and never reads Discovery MongoDB.
 
 ## Step 1 — Establish the RabbitMQ transport contract and operational topology
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -137,6 +137,22 @@ provider DTO.
 - RabbitMQ infrastructure and runtime configuration follow the root `.env`
   convention without leaking Discovery-only secrets to Qualification.
 - No service has gained access to the other's MongoDB database.
+
+### Done
+
+- Added the independently buildable `@scout/contracts` package with the
+  version-1, provider-neutral `DISCOVERED_LEAD` parser, serializer, and tests.
+  The compatibility decision and the stable RabbitMQ exchange, queue, retry,
+  and dead-letter topology are documented in
+  `docs/RABBITMQ_TRANSPORT_CONTRACT.md`.
+- Added durable RabbitMQ Docker infrastructure, per-service AMQP runtime
+  validation, bounded transport settings, and TCP broker readiness probes.
+  Readiness now reports MongoDB and RabbitMQ separately while liveness remains
+  independent of both services.
+- Verified contract lint/typecheck/tests/build; Discovery and Qualification
+  lint/typecheck/tests/build; successful Compose build and startup; healthy
+  readiness for both services; and the RabbitMQ-stop case where liveness stayed
+  `ok` while readiness reported only `rabbitmq: unavailable`.
 
 ## Step 2 — Publish the Discovery outbox through RabbitMQ with recovery
 

@@ -12,9 +12,12 @@ const SENSITIVE_FIELD_NAMES = new Set([
 ]);
 
 export interface IQualificationStructuredLogEntry {
+  readonly brokerOperation?: string;
   readonly className: string;
   readonly correlationId: string;
+  readonly durationMs?: number;
   readonly error?: ILoggedError;
+  readonly eventId?: string;
   readonly input?: unknown;
   readonly level: string;
   readonly message?: unknown;
@@ -31,9 +34,12 @@ interface ILoggedError {
 }
 
 interface IQualificationFailureLogInput {
+  readonly brokerOperation?: string;
   readonly className: string;
   readonly correlationId: string;
+  readonly durationMs?: number;
   readonly error: unknown;
+  readonly eventId?: string;
   readonly input?: unknown;
   readonly method: string;
   readonly operation: string;
@@ -90,9 +96,14 @@ export function writeQualificationFailureLog(
   input: IQualificationFailureLogInput,
 ): void {
   writeQualificationLog({
+    ...(input.brokerOperation === undefined
+      ? {}
+      : { brokerOperation: input.brokerOperation }),
     className: input.className,
     correlationId: input.correlationId,
+    ...(input.durationMs === undefined ? {} : { durationMs: input.durationMs }),
     error: toLoggedError(input.error),
+    ...(input.eventId === undefined ? {} : { eventId: input.eventId }),
     input: input.input,
     level: 'error',
     method: input.method,

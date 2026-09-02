@@ -1,12 +1,19 @@
 FROM node:26-alpine
 
-WORKDIR /app
+WORKDIR /workspace/packages/contracts
 
-COPY package.json package-lock.json ./
+COPY packages/contracts/package.json packages/contracts/package-lock.json ./
 RUN npm ci
 
-COPY tsconfig.json tsconfig.build.json ./
-COPY src ./src
+COPY packages/contracts/ ./
+RUN npm run build
+
+WORKDIR /workspace/qualification
+
+COPY qualification/package.json qualification/package-lock.json ./
+RUN npm ci
+
+COPY qualification/ ./
 
 RUN npm run build
 

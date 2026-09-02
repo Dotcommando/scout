@@ -13,10 +13,13 @@ const SENSITIVE_FIELD_NAMES = new Set([
 
 export interface IDiscoveryStructuredLogEntry {
   readonly attempt?: number;
+  readonly brokerOperation?: string;
   readonly campaignId?: string;
   readonly className: string;
   readonly correlationId: string;
+  readonly durationMs?: number;
   readonly error?: ILoggedError;
+  readonly eventId?: string;
   readonly input?: unknown;
   readonly level: string;
   readonly message?: unknown;
@@ -37,10 +40,13 @@ interface ILoggedError {
 
 interface IDiscoveryFailureLogInput {
   readonly attempt?: number;
+  readonly brokerOperation?: string;
   readonly campaignId?: string;
   readonly className: string;
   readonly correlationId: string;
+  readonly durationMs?: number;
   readonly error: unknown;
+  readonly eventId?: string;
   readonly input?: unknown;
   readonly method: string;
   readonly operation: string;
@@ -101,10 +107,15 @@ export function writeDiscoveryFailureLog(
 ): void {
   writeDiscoveryLog({
     ...(input.attempt === undefined ? {} : { attempt: input.attempt }),
+    ...(input.brokerOperation === undefined
+      ? {}
+      : { brokerOperation: input.brokerOperation }),
     ...(input.campaignId === undefined ? {} : { campaignId: input.campaignId }),
     className: input.className,
     correlationId: input.correlationId,
+    ...(input.durationMs === undefined ? {} : { durationMs: input.durationMs }),
     error: toLoggedError(input.error),
+    ...(input.eventId === undefined ? {} : { eventId: input.eventId }),
     input: input.input,
     level: 'error',
     method: input.method,

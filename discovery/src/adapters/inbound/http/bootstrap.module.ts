@@ -8,6 +8,7 @@ import { MongoDiscoveryOutputRepository } from '../../outbound/mongodb/mongo-dis
 import { MongoDiscoveryStateRepository } from '../../outbound/mongodb/mongo-discovery-state-repository.js';
 import { MongoLeadRepository } from '../../outbound/mongodb/mongo-lead-repository.js';
 import { MongoProviderQuotaRepository } from '../../outbound/mongodb/mongo-provider-quota-repository.js';
+import { RabbitMqConnectionVerifier } from '../../outbound/rabbitmq/rabbitmq-connection-verifier.js';
 import { SystemClock } from '../../outbound/time/system-clock.js';
 import { DiscoveryRuntimeConfiguration } from '../bootstrap/discovery-runtime-configuration.js';
 import { DiscoveryCampaignConfiguration } from '../configuration/discovery-campaign-configuration.js';
@@ -25,6 +26,7 @@ import { HealthController } from './health.controller.js';
     MongoDiscoveryStateRepository,
     MongoLeadRepository,
     MongoProviderQuotaRepository,
+    RabbitMqConnectionVerifier,
     SystemClock,
     {
       inject: [DiscoveryProgressService],
