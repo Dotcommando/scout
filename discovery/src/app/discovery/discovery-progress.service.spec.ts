@@ -101,10 +101,13 @@ describe('DiscoveryProgressService', () => {
     expect(harness.provider.statusRequests).toBe(1);
   });
 
-  it('imports a completed page idempotently and emits output only for new identities', async () => {
+  it('imports a completed page idempotently and emits a delivery-ready output only for new identities', async () => {
     const candidate: IProviderLeadCandidate = {
+      address: '1 Example Street',
       externalId: 'provider-place-1',
       name: 'Example Lead',
+      phoneNumber: '+441234567890',
+      websiteUrl: 'https://example.test',
     };
     const harness = createHarness({
       pages: [
@@ -128,6 +131,50 @@ describe('DiscoveryProgressService', () => {
     expect(harness.leads.leads).toHaveLength(1);
     expect(harness.outputs.outputs).toHaveLength(1);
     expect(harness.provider.readRequests).toBe(1);
+
+    const output = getOnlyOutput(harness);
+
+    expect(output.payload).toEqual({
+      campaignId: 'campaign-a',
+      correlationId: 'correlation-a',
+      eventId: output.outputId,
+      lead: {
+        address: '1 Example Street',
+        externalId: 'provider-place-1',
+        leadId: output.leadId,
+        name: 'Example Lead',
+        phoneNumber: '+441234567890',
+        sourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
+        websiteUrl: 'https://example.test',
+      },
+      occurredAt: new Date('2026-09-01T00:00:00.000Z'),
+      schemaVersion: 1,
+    });
+  });
+
+  it('keeps the original output snapshot when a duplicate observation refreshes the lead', async () => {
+    const harness = createHarness({
+      pages: [
+        {
+          items: [{ externalId: 'provider-place-1', name: 'Initial name' }],
+          nextOffset: 1,
+        },
+        {
+          items: [{ externalId: 'provider-place-1', name: 'Updated name' }],
+          nextOffset: null,
+        },
+      ],
+      runStatuses: [PROVIDER_RUN_STATUS.SUCCEEDED],
+    });
+
+    await harness.service.advanceDiscoveryWork(createInput());
+    await harness.service.advanceDiscoveryWork(createInput());
+    await harness.service.advanceDiscoveryWork(createInput());
+
+    expect(harness.leads.leads).toHaveLength(1);
+    expect(harness.leads.leads[0]?.details.name).toBe('Updated name');
+    expect(harness.outputs.outputs).toHaveLength(1);
+    expect(getOnlyOutput(harness).payload.lead.name).toBe('Initial name');
   });
 
   it('continues from durable page progress after reconstruction', async () => {
@@ -621,13 +668,27 @@ class FakeLeadRepository implements ILeadRepositoryPort {
       throw this.leadError;
     }
 
-    const existingLead = this.leads.find(
+    const existingLeadIndex = this.leads.findIndex(
       (candidate) =>
         candidate.sourceIdentity.externalId === lead.sourceIdentity.externalId
         && candidate.sourceIdentity.sourceKind === lead.sourceIdentity.sourceKind,
     );
 
-    if (existingLead !== undefined) {
+    if (existingLeadIndex !== -1) {
+      const existingLead = this.leads[existingLeadIndex];
+
+      if (existingLead === undefined) {
+        throw new Error('expected existing lead was not found');
+      }
+
+      this.leads[existingLeadIndex] = new Lead(
+        existingLead.createdAt,
+        lead.details,
+        existingLead.leadId,
+        existingLead.sourceIdentity,
+        lead.updatedAt,
+      );
+
       return {
         leadId: existingLead.leadId,
         outcome: LEAD_UPSERT_OUTCOME.EXISTING,
@@ -638,6 +699,16 @@ class FakeLeadRepository implements ILeadRepositoryPort {
 
     return { leadId: lead.leadId, outcome: LEAD_UPSERT_OUTCOME.INSERTED };
   }
+}
+
+function getOnlyOutput(harness: ITestHarness): ISaveDiscoveryOutputInput {
+  const output = harness.outputs.outputs[0];
+
+  if (output === undefined) {
+    throw new Error('expected one discovery output');
+  }
+
+  return output;
 }
 
 class FakeProviderQuotaRepository implements IProviderQuotaRepositoryPort {

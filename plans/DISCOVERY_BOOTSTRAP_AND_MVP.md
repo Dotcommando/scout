@@ -869,7 +869,62 @@ A small configured Discovery scope is processed from config through Apify, Mongo
 - The live command reconstructed `DiscoveryProgressService` after the Actor run had started before continuing its poll/import loop, demonstrating persisted run/progress recovery without relying on process memory. It used the same persisted scope/run state through completion.
 - Rebuilt both Compose images and confirmed Discovery and Qualification readiness. Stopped Qualification and confirmed Discovery remained ready; restarted Qualification and confirmed its readiness. Discovery was then stopped before its ordinary minute scheduler could start a non-E2E production-campaign Actor run. Qualification remains running and healthy.
 - Completed final quality gates: Discovery lint, strict typecheck, ordinary tests (27 passing), persistence integration tests (6 passing), and build; Qualification lint, strict typecheck, tests, and build; `git diff --check` passed.
-- Live-call execution record for the whole plan: contract capture `1 x 10` places and E2E `1 x 20` places, for `2` Actor runs and `30` requested places total. This remains within the maximum allowance of 5 runs / 100 requested places. No additional plan steps are required.
+- Live-call execution record for the whole plan: contract capture `1 x 10` places and E2E `1 x 20` places, for `2` Actor runs and `30` requested places total. This remains within the maximum allowance of 5 runs / 100 requested places. The completion review found no additional required work at that time; the later inspection of persisted output documents added Step 9 below.
+
+---
+
+## Step 9 — Persist delivery-ready lead snapshots in Discovery outputs
+
+**Status:** Done
+
+### Objective
+
+Make each newly created `discovery_outputs` record independently useful to a future delivery adapter and to Qualification without allowing either service to read Discovery's `leads` collection or database.
+
+### Observable result
+
+For every genuinely new lead, Discovery persists one immutable, provider-neutral delivery snapshot alongside the output's deterministic identity and delivery state. An operator inspecting `discovery_outputs` can see the lead information that a downstream consumer needs, rather than only an opaque `leadId`.
+
+### Implementation
+
+1. Treat `discovery_outputs` as the Discovery outbox. Keep its deterministic uniqueness rule `(campaignId, leadId)` and deterministic `outputId`; do not replace it with cross-service database reads.
+2. Define a small explicit, versioned delivery payload at the Discovery application/port boundary. It must be provider-neutral and must not serialize MongoDB documents or Apify DTOs.
+3. Persist the payload from the normalized `Lead` at the same point at which a newly inserted lead creates its output. The snapshot must include at minimum:
+   - schema version and deterministic event/output identity;
+   - campaign ID, lead ID, creation timestamp, and correlation ID;
+   - lead name;
+   - available address, website URL, and phone number;
+   - source kind and stable external identity when required for traceability.
+4. Preserve the snapshot as the discovery-time representation. A later duplicate observation may refresh the canonical `leads` record, but it must neither mutate an already-pending output payload nor create another output.
+5. Keep delivery state separate from the payload. Extend statuses and retry metadata only when they are required for the later transport adapter; do not falsely mark an output published in this step.
+6. Add a MongoDB migration/compatibility decision before changing documents. Existing ID-only pending outputs must either be explicitly backfilled from Discovery-owned lead records or be deliberately removed by the operator when they are confirmed to be test data. Do not silently delete or publish them.
+7. Do not add direct Qualification database access, Qualification business rules, or a production broker/HTTP transport in this step. The snapshot is the stable input for that later delivery step.
+8. Document the output ID, campaign ID, lead ID, payload schema version, and delivery status for operators without logging secrets. Do not add noisy per-lead runtime logs while no delivery adapter exists.
+
+### Verification
+
+- Add application and MongoDB adapter tests proving that a newly inserted lead produces exactly one output containing the expected snapshot fields.
+- Prove that a duplicate provider observation updates the canonical lead but leaves the original output payload and output count unchanged.
+- Prove output uniqueness and restart recovery remain intact.
+- Verify a representative persisted document in MongoDB contains no provider raw payload, MongoDB `_id` dependency, API token, or cross-service database reference.
+- Run Discovery lint, strict typecheck, ordinary offline tests, integration tests, and build; run Qualification's existing quality gates to confirm its independence remains intact.
+- Do not make a live Apify call for this step.
+
+### DoD
+
+- Every new `discovery_outputs` document is a useful, versioned, provider-neutral delivery record rather than an ID-only pointer.
+- Downstream delivery can be implemented solely from the output payload, without querying `scout_discovery` from Qualification.
+- Existing ID-only documents have an explicit, safe migration or removal procedure.
+- Duplicate-source and restart/idempotency guarantees still hold.
+- No secrets or provider-specific raw DTOs enter output documents, logs, or operator documentation.
+
+### Done
+
+- Added a version-1, provider-neutral output payload built from the normalized `Lead`. It contains the event identity, campaign ID, correlation ID, occurrence time, and a lead snapshot with its internal ID, source identity, name, and available address, phone number, and website URL.
+- Propagated the inbound correlation ID through result importing to the output payload. Output records retain their existing deterministic `(campaignId, leadId)` and `outputId` identities, and MongoDB still writes through `$setOnInsert`; a later canonical-lead refresh cannot replace the original pending snapshot.
+- Added application coverage for a complete delivery payload and for the duplicate-observation case: the canonical lead changes, while the sole output keeps its original snapshot. Extended MongoDB integration coverage to verify a second write with changed payload data does not mutate the persisted output.
+- Added [DISCOVERY_OUTPUT_MIGRATION.md](../docs/DISCOVERY_OUTPUT_MIGRATION.md), documenting the versioned schema and an explicit removal procedure for the known ID-only test outputs. Older records are not silently reconstructed or published because their original snapshot and correlation ID cannot be recovered reliably.
+- Verified Discovery with lint, strict typecheck, ordinary offline tests (28 passing), MongoDB integration tests (6 passing), and build. Verified Qualification remains independent with lint, strict typecheck, tests (4 passing), and build. No live Apify call was made. `git diff --check` passed.
 
 ---
 
@@ -894,7 +949,7 @@ This plan is complete only when all steps are `Done` and:
 - opt-in live E2E is limited to at most 20 places per run and the full plan execution remains within 5 live Actor runs / 100 requested places;
 - source identity is uniquely enforced by `(sourceKind, externalId)`;
 - the same source identity cannot be emitted twice as a newly discovered lead;
-- Discovery creates durable provider-neutral output records suitable for later delivery to Qualification;
+- Discovery creates durable, versioned provider-neutral output records containing delivery-ready lead snapshots suitable for later delivery to Qualification;
 - expensive provider enrichment is not enabled;
 - representative failures are diagnosable from structured container logs;
 - strict typecheck passes;

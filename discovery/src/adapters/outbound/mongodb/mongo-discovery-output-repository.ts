@@ -1,25 +1,16 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Collection } from 'mongodb';
 
-import { DISCOVERY_OUTPUT_STATUS } from '../../../domain/discovery/discovery-model.js';
 import {
   IDiscoveryOutputRepositoryPort,
   ISaveDiscoveryOutputInput,
 } from '../../../ports/outbound/discovery-output-repository.port.js';
 import { MongoDatabaseClient } from './mongo-database-client.js';
 
-interface IDiscoveryOutputDocument {
-  readonly campaignId: string;
-  readonly createdAt: Date;
-  readonly leadId: string;
-  readonly outputId: string;
-  readonly status: DISCOVERY_OUTPUT_STATUS;
-}
-
 @Injectable()
 export class MongoDiscoveryOutputRepository
   implements IDiscoveryOutputRepositoryPort, OnModuleInit {
-  private readonly collection: Collection<IDiscoveryOutputDocument>;
+  private readonly collection: Collection<ISaveDiscoveryOutputInput>;
 
   public constructor(mongoDatabaseClient: MongoDatabaseClient) {
     this.collection = mongoDatabaseClient

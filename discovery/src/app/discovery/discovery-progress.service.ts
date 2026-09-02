@@ -34,6 +34,7 @@ import {
 import {
   IDiscoveryCampaignConfiguration,
 } from './discovery-campaign-configuration.js';
+import { createDiscoveryOutputPayload } from './discovery-output-payload.js';
 
 const DISCOVERY_SCOPE_CLAIM_STALE_MILLISECONDS = 5 * 60 * 1000;
 const PROVIDER_RESULT_PAGE_SIZE = 25;
@@ -144,7 +145,12 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
     });
 
     if (activeScope !== null) {
-      return this.processActiveScope(activeScope, configuration, currentTime);
+      return this.processActiveScope(
+        activeScope,
+        configuration,
+        currentTime,
+        input.correlationId,
+      );
     }
 
     const scope = await this.scopeRepository.claimNextEligibleScope({
@@ -207,6 +213,7 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
   private async importProviderResults(
     scope: DiscoveryScopeProgress,
     currentTime: Date,
+    correlationId: string,
   ): Promise<IAdvanceDiscoveryWorkResult> {
     const datasetReference = scope.providerRun?.datasetReference;
 
@@ -230,7 +237,7 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
     });
 
     for (const candidate of page.items) {
-      await this.saveCandidateLead(scope, candidate, currentTime);
+      await this.saveCandidateLead(scope, candidate, currentTime, correlationId);
     }
 
     const nextItemOffset = importProgress.nextItemOffset + page.items.length;
@@ -265,10 +272,11 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
     scope: DiscoveryScopeProgress,
     configuration: IDiscoveryCampaignConfiguration,
     currentTime: Date,
+    correlationId: string,
   ): Promise<IAdvanceDiscoveryWorkResult> {
     try {
       if (scope.status === DISCOVERY_SCOPE_STATUS.IMPORTING) {
-        return await this.importProviderResults(scope, currentTime);
+        return await this.importProviderResults(scope, currentTime, correlationId);
       }
       if (scope.providerRun === undefined) {
         const reservedScope = await this.reserveProviderItems(
@@ -329,6 +337,7 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
       return await this.importProviderResults(
         updatedScope.startImport(currentTime),
         currentTime,
+        correlationId,
       );
     } catch (error: unknown) {
       await this.scopeRepository.saveScopeProgress(scope.releaseClaim(currentTime));
@@ -381,6 +390,7 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
     scope: DiscoveryScopeProgress,
     candidate: IProviderLeadCandidate,
     currentTime: Date,
+    correlationId: string,
   ): Promise<void> {
     const sourceIdentity = new LeadSourceIdentity(
       candidate.externalId,
@@ -391,38 +401,46 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
       sourceIdentity.sourceKind,
       sourceIdentity.externalId,
     );
-    const result = await this.leadRepository.upsertLead(
-      new Lead(
-        currentTime,
-        {
-          ...(candidate.address === undefined ? {} : { address: candidate.address }),
-          name: candidate.name,
-          ...(candidate.phoneNumber === undefined
-            ? {}
-            : { phoneNumber: candidate.phoneNumber }),
-          ...(candidate.websiteUrl === undefined
-            ? {}
-            : { websiteUrl: candidate.websiteUrl }),
-        },
-        leadId,
-        sourceIdentity,
-        currentTime,
-      ),
+    const lead = new Lead(
+      currentTime,
+      {
+        ...(candidate.address === undefined ? {} : { address: candidate.address }),
+        name: candidate.name,
+        ...(candidate.phoneNumber === undefined
+          ? {}
+          : { phoneNumber: candidate.phoneNumber }),
+        ...(candidate.websiteUrl === undefined
+          ? {}
+          : { websiteUrl: candidate.websiteUrl }),
+      },
+      leadId,
+      sourceIdentity,
+      currentTime,
     );
+    const result = await this.leadRepository.upsertLead(lead);
 
     if (result.outcome === LEAD_UPSERT_OUTCOME.EXISTING) {
       return;
     }
 
+    const outputId = createStableIdentifier(
+      'discovery-output',
+      scope.campaign.campaignId,
+      result.leadId,
+    );
+
     await this.discoveryOutputRepository.saveDiscoveryOutput({
       campaignId: scope.campaign.campaignId,
       createdAt: currentTime,
       leadId: result.leadId,
-      outputId: createStableIdentifier(
-        'discovery-output',
-        scope.campaign.campaignId,
-        result.leadId,
-      ),
+      outputId,
+      payload: createDiscoveryOutputPayload({
+        campaignId: scope.campaign.campaignId,
+        correlationId,
+        lead,
+        occurredAt: currentTime,
+        outputId,
+      }),
       status: DISCOVERY_OUTPUT_STATUS.PENDING,
     });
   }

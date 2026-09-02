@@ -6,6 +6,7 @@ import { MongoDiscoveryOutputRepository } from '../../src/adapters/outbound/mong
 import { MongoDiscoveryStateRepository } from '../../src/adapters/outbound/mongodb/mongo-discovery-state-repository.js';
 import { MongoLeadRepository } from '../../src/adapters/outbound/mongodb/mongo-lead-repository.js';
 import { MongoProviderQuotaRepository } from '../../src/adapters/outbound/mongodb/mongo-provider-quota-repository.js';
+import { IDiscoveryOutputPayload } from '../../src/app/discovery/discovery-output-payload.js';
 import {
   DISCOVERY_OUTPUT_STATUS,
   DISCOVERY_SCOPE_STATUS,
@@ -21,6 +22,15 @@ import { LEAD_UPSERT_OUTCOME } from '../../src/ports/outbound/lead-repository.po
 const INTEGRATION_DATABASE_URI =
   'mongodb://localhost:27017/scout_discovery_step3_integration';
 const CAMPAIGN_ID = 'integration-campaign';
+
+interface IIntegrationDiscoveryOutputDocument {
+  readonly campaignId: string;
+  readonly createdAt: Date;
+  readonly leadId: string;
+  readonly outputId: string;
+  readonly payload: IDiscoveryOutputPayload;
+  readonly status: DISCOVERY_OUTPUT_STATUS;
+}
 
 describe('Mongo Discovery persistence', () => {
   let mongoDatabaseClient: MongoDatabaseClient;
@@ -202,18 +212,46 @@ describe('Mongo Discovery persistence', () => {
       createdAt: new Date('2026-09-01T05:00:00.000Z'),
       leadId: 'lead-1',
       outputId: 'output-1',
+      payload: {
+        campaignId: CAMPAIGN_ID,
+        correlationId: 'correlation-1',
+        eventId: 'output-1',
+        lead: {
+          externalId: 'provider-place-1',
+          leadId: 'lead-1',
+          name: 'Example lead',
+          sourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
+        },
+        occurredAt: new Date('2026-09-01T05:00:00.000Z'),
+        schemaVersion: 1,
+      },
       status: DISCOVERY_OUTPUT_STATUS.PENDING,
+    };
+    const changedOutput = {
+      ...output,
+      payload: {
+        ...output.payload,
+        correlationId: 'correlation-2',
+        lead: {
+          ...output.payload.lead,
+          name: 'Changed lead',
+        },
+      },
     };
 
     await outputRepository.saveDiscoveryOutput(output);
-    await outputRepository.saveDiscoveryOutput(output);
+    await outputRepository.saveDiscoveryOutput(changedOutput);
 
-    expect(
-      await mongoDatabaseClient
-        .getDatabase()
-        .collection('discovery_outputs')
-        .countDocuments({ campaignId: CAMPAIGN_ID, leadId: 'lead-1' }),
-    ).toBe(1);
+    const collection = mongoDatabaseClient
+      .getDatabase()
+      .collection<IIntegrationDiscoveryOutputDocument>('discovery_outputs');
+    const persistedOutput = await collection.findOne({
+      campaignId: CAMPAIGN_ID,
+      leadId: 'lead-1',
+    });
+
+    expect(await collection.countDocuments()).toBe(1);
+    expect(persistedOutput?.payload).toEqual(output.payload);
   });
 
   it('does not exceed the daily quota under concurrent reservations', async () => {
