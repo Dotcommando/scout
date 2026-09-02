@@ -10,6 +10,7 @@
     "capture:contract:inspect": "node dist/adapters/inbound/cli/capture-apify-contract.js inspect",
     "lint": "eslint .",
     "live:execute": "node dist/adapters/inbound/cli/run-live-discovery-execution.js",
+    "operations:summary": "node dist/adapters/inbound/cli/report-discovery-operations.js",
     "start": "node dist/adapters/inbound/http/main.js",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
     "test:e2e:live": "node dist/adapters/inbound/cli/run-live-discovery-e2e.js",

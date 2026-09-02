@@ -713,7 +713,7 @@ execution.
 
 ## Step 8 — Verify recovery, operations, and the complete local delivery path
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -760,6 +760,26 @@ transient versus terminal failures from structured logs.
 - The complete path is restart-safe and at-least-once by design.
 - All required persistence uniqueness guarantees are integration-tested.
 - Operators have documented, non-destructive recovery and replay procedures.
+
+### Done
+
+- Added `docs/OPERATIONS.md` with Compose lifecycle, separate liveness and
+  readiness checks, durable outbox/inbox recovery, queue/retry/dead-letter
+  inspection, and safe backfill and configuration-change procedures.
+- Added service-owned, read-only structured operation summaries:
+  `discovery` reports outbox and backfill status counts, while `qualification`
+  reports inbox, execution and decision counts together with main, retry and
+  dead-letter queue state. Neither command reads the other service's MongoDB.
+- Rebuilt the local Compose services, restarted both services, verified all
+  four liveness/readiness endpoints, and verified the operation summaries
+  against MongoDB and RabbitMQ. The existing isolated Compose delivery data
+  still has exactly one completed qualification execution and decision per
+  processed campaign/lead/profile version.
+- Full Discovery and Qualification lint, strict typecheck, test, integration,
+  and build gates passed. The test suite covers MongoDB outage reporting,
+  publisher confirmation, persistence recovery and uniqueness, duplicate
+  delivery, malformed/poison handling, retry/dead-letter routing and graceful
+  consumer shutdown. No additional live Apify call was made.
 
 # Plan completion criteria
 

@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json --incremental false",
     "lint": "eslint .",
+    "operations:summary": "node dist/adapters/inbound/cli/report-qualification-operations.js",
     "start": "node dist/adapters/inbound/http/main.js",
     "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
     "typecheck": "tsc --noEmit"
