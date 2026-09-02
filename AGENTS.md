@@ -1271,8 +1271,11 @@ At the end of the final step:
 3. confirm whether additional required work exists;
 4. if new required work exists, add it using normal sequential integer
    numbering before declaring the plan complete;
-5. otherwise leave the completed plan intact as the historical execution
-   record.
+5. otherwise update the root `ACTUAL_STATE.md` with the verified post-plan
+   state before declaring the plan complete; it must describe each deployed
+   microservice, its inputs, outputs, and communication paths, and must not
+   present planned work as implemented;
+6. leave the completed plan intact as the historical execution record.
 
 
 ---
