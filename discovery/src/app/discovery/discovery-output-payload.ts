@@ -11,6 +11,11 @@ import {
 
 export const DISCOVERY_OUTPUT_SCHEMA_VERSION = 1;
 
+export enum DISCOVERY_OUTPUT_ORIGIN {
+  BACKFILL = 'backfill',
+  DISCOVERY = 'discovery',
+}
+
 export interface IDiscoveryOutputLeadSnapshot {
   readonly address?: string;
   readonly externalId: string;
@@ -22,19 +27,23 @@ export interface IDiscoveryOutputLeadSnapshot {
 }
 
 export interface IDiscoveryOutputPayload {
+  readonly backfillRunId?: string;
   readonly campaignId: string;
   readonly correlationId: string;
   readonly eventId: string;
   readonly lead: IDiscoveryOutputLeadSnapshot;
   readonly occurredAt: Date;
+  readonly origin: DISCOVERY_OUTPUT_ORIGIN;
   readonly schemaVersion: number;
 }
 
 export interface ICreateDiscoveryOutputPayloadInput {
+  readonly backfillRunId?: string;
   readonly campaignId: string;
   readonly correlationId: string;
   readonly lead: Lead;
   readonly occurredAt: Date;
+  readonly origin?: DISCOVERY_OUTPUT_ORIGIN;
   readonly outputId: string;
 }
 
@@ -42,6 +51,7 @@ export function createDiscoveryOutputPayload(
   input: ICreateDiscoveryOutputPayloadInput,
 ): IDiscoveryOutputPayload {
   return {
+    ...(input.backfillRunId === undefined ? {} : { backfillRunId: input.backfillRunId }),
     campaignId: input.campaignId,
     correlationId: input.correlationId,
     eventId: input.outputId,
@@ -61,6 +71,7 @@ export function createDiscoveryOutputPayload(
         : { websiteUrl: input.lead.details.websiteUrl }),
     },
     occurredAt: input.occurredAt,
+    origin: input.origin ?? DISCOVERY_OUTPUT_ORIGIN.DISCOVERY,
     schemaVersion: DISCOVERY_OUTPUT_SCHEMA_VERSION,
   };
 }

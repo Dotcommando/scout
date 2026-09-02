@@ -12,6 +12,7 @@ import {
   IDiscoveryCampaignConfigurationPort,
 } from '../../ports/outbound/discovery-campaign-configuration.port.js';
 import {
+  DISCOVERY_OUTPUT_SAVE_OUTCOME,
   IClaimedDiscoveryOutput,
   IClaimPendingDiscoveryOutputsInput,
   IConfirmDiscoveryOutputPublicationInput,
@@ -37,6 +38,8 @@ import {
   ISynchronizeConfiguredScopesInput,
 } from '../../ports/outbound/discovery-state-repository.port.js';
 import {
+  IFindLeadsForBackfillInput,
+  ILeadBackfillPage,
   ILeadRepositoryPort,
   ILeadUpsertResult,
   LEAD_UPSERT_OUTCOME,
@@ -50,6 +53,7 @@ import {
   IDiscoveryCampaignConfiguration,
   IDiscoveryScopeConfiguration,
 } from './discovery-campaign-configuration.js';
+import { DISCOVERY_OUTPUT_ORIGIN } from './discovery-output-payload.js';
 import {
   DISCOVERY_WORK_OUTCOME,
   DiscoveryProgressService,
@@ -153,6 +157,7 @@ describe('DiscoveryProgressService', () => {
         websiteUrl: 'https://example.test',
       },
       occurredAt: new Date('2026-09-01T00:00:00.000Z'),
+      origin: DISCOVERY_OUTPUT_ORIGIN.DISCOVERY,
       schemaVersion: 1,
     });
   });
@@ -456,12 +461,16 @@ class FakeDiscoveryOutputRepository implements IDiscoveryOutputRepositoryPort {
     return true;
   }
 
-  public async saveDiscoveryOutput(input: ISaveDiscoveryOutputInput): Promise<void> {
+  public async saveDiscoveryOutput(
+    input: ISaveDiscoveryOutputInput,
+  ): Promise<DISCOVERY_OUTPUT_SAVE_OUTCOME> {
     if (this.outputs.some((output) => output.outputId === input.outputId)) {
-      return;
+      return DISCOVERY_OUTPUT_SAVE_OUTCOME.EXISTING;
     }
 
     this.outputs.push(input);
+
+    return DISCOVERY_OUTPUT_SAVE_OUTCOME.INSERTED;
   }
 }
 
@@ -699,6 +708,14 @@ class FakeLeadRepository implements ILeadRepositoryPort {
   public readonly leads: Lead[] = [];
 
   public constructor(private readonly leadError: Error | undefined) {}
+
+  public async findLeadsForBackfill(
+    input: IFindLeadsForBackfillInput,
+  ): Promise<ILeadBackfillPage> {
+    void input;
+
+    return { leads: [] };
+  }
 
   public async upsertLead(lead: Lead): Promise<ILeadUpsertResult> {
     if (this.leadError !== undefined) {

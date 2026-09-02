@@ -34,6 +34,12 @@ export enum DISCOVERY_OUTPUT_STATUS {
   PUBLISHED = 'published',
 }
 
+export enum DISCOVERY_BACKFILL_RUN_STATUS {
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  RUNNING = 'running',
+}
+
 export class DiscoveryCampaignReference {
   public constructor(public readonly campaignId: string) {
     requireNonEmptyValue(campaignId, 'campaignId');

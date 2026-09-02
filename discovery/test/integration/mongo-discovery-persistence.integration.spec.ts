@@ -2,12 +2,17 @@ import { randomUUID } from 'node:crypto';
 
 import { DiscoveryRuntimeConfiguration } from '../../src/adapters/inbound/bootstrap/discovery-runtime-configuration.js';
 import { MongoDatabaseClient } from '../../src/adapters/outbound/mongodb/mongo-database-client.js';
+import { MongoDiscoveryBackfillRunRepository } from '../../src/adapters/outbound/mongodb/mongo-discovery-backfill-run-repository.js';
 import { MongoDiscoveryOutputRepository } from '../../src/adapters/outbound/mongodb/mongo-discovery-output-repository.js';
 import { MongoDiscoveryStateRepository } from '../../src/adapters/outbound/mongodb/mongo-discovery-state-repository.js';
 import { MongoLeadRepository } from '../../src/adapters/outbound/mongodb/mongo-lead-repository.js';
 import { MongoProviderQuotaRepository } from '../../src/adapters/outbound/mongodb/mongo-provider-quota-repository.js';
-import { IDiscoveryOutputPayload } from '../../src/app/discovery/discovery-output-payload.js';
 import {
+  DISCOVERY_OUTPUT_ORIGIN,
+  IDiscoveryOutputPayload,
+} from '../../src/app/discovery/discovery-output-payload.js';
+import {
+  DISCOVERY_BACKFILL_RUN_STATUS,
   DISCOVERY_OUTPUT_STATUS,
   DISCOVERY_SCOPE_STATUS,
   DISCOVERY_SOURCE_KIND,
@@ -17,6 +22,7 @@ import {
   LeadSourceIdentity,
   PROVIDER_RUN_STATUS,
 } from '../../src/domain/discovery/discovery-model.js';
+import { DISCOVERY_OUTPUT_SAVE_OUTCOME } from '../../src/ports/outbound/discovery-output-repository.port.js';
 import { LEAD_UPSERT_OUTCOME } from '../../src/ports/outbound/lead-repository.port.js';
 
 const INTEGRATION_DATABASE_URI =
@@ -34,6 +40,7 @@ interface IIntegrationDiscoveryOutputDocument {
 
 describe('Mongo Discovery persistence', () => {
   let mongoDatabaseClient: MongoDatabaseClient;
+  let backfillRunRepository: MongoDiscoveryBackfillRunRepository;
   let outputRepository: MongoDiscoveryOutputRepository;
   let leadRepository: MongoLeadRepository;
   let scopeRepository: MongoDiscoveryStateRepository;
@@ -51,12 +58,14 @@ describe('Mongo Discovery persistence', () => {
     await mongoDatabaseClient.getDatabase().dropDatabase();
 
     leadRepository = new MongoLeadRepository(mongoDatabaseClient);
+    backfillRunRepository = new MongoDiscoveryBackfillRunRepository(mongoDatabaseClient);
     outputRepository = new MongoDiscoveryOutputRepository(mongoDatabaseClient);
     scopeRepository = new MongoDiscoveryStateRepository(mongoDatabaseClient);
     quotaRepository = new MongoProviderQuotaRepository(mongoDatabaseClient);
 
     await Promise.all([
       leadRepository.onModuleInit(),
+      backfillRunRepository.onModuleInit(),
       outputRepository.onModuleInit(),
       scopeRepository.onModuleInit(),
       quotaRepository.onModuleInit(),
@@ -126,6 +135,54 @@ describe('Mongo Discovery persistence', () => {
     );
 
     expect(claims.filter((claim) => claim !== null)).toHaveLength(1);
+  });
+
+  it('selects canonical leads in deterministic lead identity order', async () => {
+    const createdAt = new Date('2026-09-01T01:30:00.000Z');
+
+    await leadRepository.upsertLead(new Lead(
+      createdAt,
+      { name: 'Later lead' },
+      'zz-backfill-lead',
+      new LeadSourceIdentity('provider-place-z', DISCOVERY_SOURCE_KIND.GOOGLE_MAPS),
+      createdAt,
+    ));
+    await leadRepository.upsertLead(new Lead(
+      createdAt,
+      { name: 'First backfill lead' },
+      'aa-backfill-lead',
+      new LeadSourceIdentity('provider-place-a', DISCOVERY_SOURCE_KIND.GOOGLE_MAPS),
+      createdAt,
+    ));
+
+    const firstPage = await leadRepository.findLeadsForBackfill({
+      limit: 2,
+      sourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
+    });
+    const lastLead = firstPage.leads[1];
+
+    if (lastLead === undefined) {
+      throw new Error('expected a full first backfill page');
+    }
+
+    const secondPage = await leadRepository.findLeadsForBackfill({
+      afterLeadId: lastLead.leadId,
+      limit: 10,
+      sourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
+    });
+
+    expect(firstPage.leads.map((lead) => lead.leadId)).toEqual([
+      'aa-backfill-lead',
+      'lead-1',
+    ]);
+    expect(secondPage.leads.map((lead) => lead.leadId)).toEqual([
+      'zz-backfill-lead',
+    ]);
+    expect((await leadRepository.findLeadsForBackfill({
+      leadIdPrefix: 'zz-backfill',
+      limit: 10,
+      sourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
+    })).leads.map((lead) => lead.leadId)).toEqual(['zz-backfill-lead']);
   });
 
   it('persists provider references and import progress across repository instances', async () => {
@@ -223,6 +280,7 @@ describe('Mongo Discovery persistence', () => {
           sourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
         },
         occurredAt: new Date('2026-09-01T05:00:00.000Z'),
+        origin: DISCOVERY_OUTPUT_ORIGIN.DISCOVERY,
         schemaVersion: 1,
       },
       status: DISCOVERY_OUTPUT_STATUS.PENDING,
@@ -238,10 +296,8 @@ describe('Mongo Discovery persistence', () => {
         },
       },
     };
-
-    await outputRepository.saveDiscoveryOutput(output);
-    await outputRepository.saveDiscoveryOutput(changedOutput);
-
+    const firstSaveOutcome = await outputRepository.saveDiscoveryOutput(output);
+    const repeatedSaveOutcome = await outputRepository.saveDiscoveryOutput(changedOutput);
     const collection = mongoDatabaseClient
       .getDatabase()
       .collection<IIntegrationDiscoveryOutputDocument>('discovery_outputs');
@@ -251,7 +307,48 @@ describe('Mongo Discovery persistence', () => {
     });
 
     expect(await collection.countDocuments()).toBe(1);
+    expect(firstSaveOutcome).toBe(DISCOVERY_OUTPUT_SAVE_OUTCOME.INSERTED);
+    expect(repeatedSaveOutcome).toBe(DISCOVERY_OUTPUT_SAVE_OUTCOME.EXISTING);
     expect(persistedOutput?.payload).toEqual(output.payload);
+  });
+
+  it('persists an interrupted backfill run so its explicit run identity can resume', async () => {
+    const startedAt = new Date('2026-09-01T05:30:00.000Z');
+
+    await backfillRunRepository.startBackfillRun({
+      campaignId: CAMPAIGN_ID,
+      configurationHash: 'configuration-hash',
+      correlationId: 'correlation-backfill-1',
+      createdAt: startedAt,
+      dryRun: false,
+      maximumLeadCount: 10,
+      qualificationCatalogRevision: '2026-09-02-r1',
+      runId: 'backfill-run-1',
+      selectedSourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
+    });
+    await backfillRunRepository.failBackfillRun({
+      failedAt: new Date('2026-09-01T05:31:00.000Z'),
+      failureMessage: 'simulated interruption',
+      runId: 'backfill-run-1',
+    });
+
+    const restartedRepository = new MongoDiscoveryBackfillRunRepository(
+      mongoDatabaseClient,
+    );
+    const resumedRun = await restartedRepository.startBackfillRun({
+      campaignId: CAMPAIGN_ID,
+      configurationHash: 'configuration-hash',
+      correlationId: 'correlation-backfill-1',
+      createdAt: new Date('2026-09-01T05:32:00.000Z'),
+      dryRun: false,
+      maximumLeadCount: 10,
+      qualificationCatalogRevision: '2026-09-02-r1',
+      runId: 'backfill-run-1',
+      selectedSourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
+    });
+
+    expect(resumedRun.status).toBe(DISCOVERY_BACKFILL_RUN_STATUS.RUNNING);
+    expect(resumedRun.failureMessage).toBeUndefined();
   });
 
   it('atomically claims one output and reclaims it after an expired lease', async () => {
@@ -271,6 +368,7 @@ describe('Mongo Discovery persistence', () => {
           sourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
         },
         occurredAt: new Date('2026-09-01T06:00:00.000Z'),
+        origin: DISCOVERY_OUTPUT_ORIGIN.DISCOVERY,
         schemaVersion: 1,
       },
       status: DISCOVERY_OUTPUT_STATUS.PENDING,

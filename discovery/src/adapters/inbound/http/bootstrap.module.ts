@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 
+import { DiscoveryBackfillService } from '../../../app/discovery/discovery-backfill.service.js';
 import { DiscoveryOutputPublisherService } from '../../../app/discovery/discovery-output-publisher.service.js';
 import { DiscoveryProgressService } from '../../../app/discovery/discovery-progress.service.js';
 import { ApifyGoogleMapsProviderAdapter } from '../../outbound/apify/apify-google-maps-provider-adapter.js';
 import { MongoDatabaseClient } from '../../outbound/mongodb/mongo-database-client.js';
+import { MongoDiscoveryBackfillRunRepository } from '../../outbound/mongodb/mongo-discovery-backfill-run-repository.js';
 import { MongoDiscoveryOutputRepository } from '../../outbound/mongodb/mongo-discovery-output-repository.js';
 import { MongoDiscoveryStateRepository } from '../../outbound/mongodb/mongo-discovery-state-repository.js';
 import { MongoLeadRepository } from '../../outbound/mongodb/mongo-lead-repository.js';
@@ -25,6 +27,7 @@ import { HealthController } from './health.controller.js';
     DiscoveryCampaignConfiguration,
     DiscoveryRuntimeConfiguration,
     MongoDatabaseClient,
+    MongoDiscoveryBackfillRunRepository,
     MongoDiscoveryOutputRepository,
     MongoDiscoveryStateRepository,
     MongoLeadRepository,
@@ -32,6 +35,29 @@ import { HealthController } from './health.controller.js';
     RabbitMqConnectionVerifier,
     RabbitMqDiscoveredLeadMessagePublisher,
     SystemClock,
+    {
+      inject: [
+        DiscoveryCampaignConfiguration,
+        SystemClock,
+        MongoDiscoveryBackfillRunRepository,
+        MongoDiscoveryOutputRepository,
+        MongoLeadRepository,
+      ],
+      provide: DiscoveryBackfillService,
+      useFactory: (
+        campaignConfiguration: DiscoveryCampaignConfiguration,
+        clock: SystemClock,
+        backfillRunRepository: MongoDiscoveryBackfillRunRepository,
+        discoveryOutputRepository: MongoDiscoveryOutputRepository,
+        leadRepository: MongoLeadRepository,
+      ): DiscoveryBackfillService => new DiscoveryBackfillService(
+        campaignConfiguration,
+        clock,
+        backfillRunRepository,
+        discoveryOutputRepository,
+        leadRepository,
+      ),
+    },
     {
       inject: [DiscoveryProgressService],
       provide: DiscoveryWorker,

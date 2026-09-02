@@ -509,7 +509,7 @@ catalog entry and matching rule that caused the result.
 
 ## Step 6 — Backfill existing Discovery leads through the normal outbox path
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -560,6 +560,29 @@ ordinary publisher and consumer then handle them exactly like new outputs.
   broker injection.
 - Campaign attribution is operator-explicit and auditable.
 - A backfill is idempotent and cannot pretend to recreate deleted history.
+
+### Done
+
+- Added the non-interactive `npm run backfill` Discovery CLI. It requires an
+  explicit campaign, source kind, bounded count, operator run ID, Qualification
+  catalog revision, and confirmation for an execution; it also supports dry-run
+  and an optional literal lead-ID prefix for controlled subsets.
+- Added deterministic canonical-lead pagination, an audited
+  `discovery_backfill_runs` collection, and restart-safe reuse of the existing
+  campaign/lead outbox uniqueness constraint. Backfill stores the Discovery
+  configuration hash and Qualification catalog revision without Discovery
+  reading Qualification persistence or configuration.
+- Backfill writes a new current-state payload into the ordinary Discovery
+  outbox with explicit `backfill` origin and run ID. The normal publisher and
+  Qualification consumer remain the only transport path.
+- Added application and MongoDB integration coverage for campaign/confirmation,
+  deterministic paging, dry runs, existing-output collisions, repeat runs, and
+  interrupted-run recovery. Documented the audited preview, execution,
+  monitoring, and reconciliation procedure in `docs/DISCOVERY_BACKFILL.md`.
+- Ran full Discovery and Qualification lint, strict typecheck, tests, and
+  builds. In local Compose, dry-run selected two isolated leads; confirmed
+  backfill created and published two outbox records, and Qualification produced
+  exactly one execution and one qualified decision for each.
 
 ## Step 7 — Add controlled live Discovery budget and unique-yield stopping
 

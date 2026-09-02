@@ -5,6 +5,7 @@ import { IClockPort } from '../../ports/outbound/clock.port.js';
 import { IDiscoveredLeadMessagePublisherPort } from '../../ports/outbound/discovered-lead-message-publisher.port.js';
 import {
   DISCOVERY_OUTPUT_PUBLICATION_FAILURE_KIND,
+  DISCOVERY_OUTPUT_SAVE_OUTCOME,
   IClaimedDiscoveryOutput,
   IClaimPendingDiscoveryOutputsInput,
   IConfirmDiscoveryOutputPublicationInput,
@@ -13,6 +14,7 @@ import {
   IReleaseDiscoveryOutputClaimInput,
   ISaveDiscoveryOutputInput,
 } from '../../ports/outbound/discovery-output-repository.port.js';
+import { DISCOVERY_OUTPUT_ORIGIN } from './discovery-output-payload.js';
 import {
   DiscoveryMessagePublicationError,
   DiscoveryOutputPublisherService,
@@ -147,8 +149,12 @@ class FakeDiscoveryOutputRepository implements IDiscoveryOutputRepositoryPort {
     return true;
   }
 
-  public async saveDiscoveryOutput(input: ISaveDiscoveryOutputInput): Promise<void> {
+  public async saveDiscoveryOutput(
+    input: ISaveDiscoveryOutputInput,
+  ): Promise<DISCOVERY_OUTPUT_SAVE_OUTCOME> {
     void input;
+
+    return DISCOVERY_OUTPUT_SAVE_OUTCOME.EXISTING;
   }
 }
 
@@ -178,6 +184,7 @@ function createOutput(): IClaimedDiscoveryOutput {
         sourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
       },
       occurredAt: CURRENT_TIME,
+      origin: DISCOVERY_OUTPUT_ORIGIN.DISCOVERY,
       schemaVersion: 1,
     },
     publishAttemptCount: 1,

@@ -4,8 +4,11 @@ import { Collection, MongoServerError } from 'mongodb';
 import {
   DISCOVERY_SOURCE_KIND,
   Lead,
+  LeadSourceIdentity,
 } from '../../../domain/discovery/discovery-model.js';
 import {
+  IFindLeadsForBackfillInput,
+  ILeadBackfillPage,
   ILeadRepositoryPort,
   ILeadUpsertResult,
   LEAD_UPSERT_OUTCOME,
@@ -43,6 +46,45 @@ export class MongoLeadRepository implements ILeadRepositoryPort, OnModuleInit {
         unique: true,
       },
     );
+    await this.collection.createIndex(
+      {
+        sourceKind: 1,
+        leadId: 1,
+      },
+      {
+        name: 'backfill_selection',
+      },
+    );
+  }
+
+  public async findLeadsForBackfill(
+    input: IFindLeadsForBackfillInput,
+  ): Promise<ILeadBackfillPage> {
+    const documents = await this.collection
+      .find({
+        ...(
+          input.afterLeadId === undefined && input.leadIdPrefix === undefined
+            ? {}
+            : {
+              leadId: {
+                ...(input.afterLeadId === undefined
+                  ? {}
+                  : { $gt: input.afterLeadId }),
+                ...(input.leadIdPrefix === undefined
+                  ? {}
+                  : { $regex: createExactPrefixPattern(input.leadIdPrefix) }),
+              },
+            }
+        ),
+        sourceKind: input.sourceKind,
+      })
+      .sort({ leadId: 1 })
+      .limit(input.limit)
+      .toArray();
+
+    return {
+      leads: documents.map((document) => toLead(document)),
+    };
   }
 
   public async upsertLead(lead: Lead): Promise<ILeadUpsertResult> {
@@ -89,6 +131,29 @@ export class MongoLeadRepository implements ILeadRepositoryPort, OnModuleInit {
   }
 }
 
+function toLead(document: ILeadDocument): Lead {
+  return new Lead(
+    document.createdAt,
+    {
+      ...(document.address === undefined ? {} : { address: document.address }),
+      name: document.name,
+      ...(document.phoneNumber === undefined
+        ? {}
+        : { phoneNumber: document.phoneNumber }),
+      ...(document.websiteUrl === undefined
+        ? {}
+        : { websiteUrl: document.websiteUrl }),
+    },
+    document.leadId,
+    new LeadSourceIdentity(document.externalId, document.sourceKind),
+    document.updatedAt,
+  );
+}
+
 function isDuplicateKeyError(error: unknown): boolean {
   return error instanceof MongoServerError && error.code === 11000;
+}
+
+function createExactPrefixPattern(prefix: string): RegExp {
+  return new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
 }

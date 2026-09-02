@@ -5,6 +5,7 @@ import { IDiscoveryOutputPayload } from '../../../app/discovery/discovery-output
 import { DISCOVERY_OUTPUT_STATUS } from '../../../domain/discovery/discovery-model.js';
 import {
   DISCOVERY_OUTPUT_PUBLICATION_FAILURE_KIND,
+  DISCOVERY_OUTPUT_SAVE_OUTCOME,
   IClaimedDiscoveryOutput,
   IClaimPendingDiscoveryOutputsInput,
   IConfirmDiscoveryOutputPublicationInput,
@@ -238,8 +239,8 @@ export class MongoDiscoveryOutputRepository
 
   public async saveDiscoveryOutput(
     input: ISaveDiscoveryOutputInput,
-  ): Promise<void> {
-    await this.collection.updateOne(
+  ): Promise<DISCOVERY_OUTPUT_SAVE_OUTCOME> {
+    const result = await this.collection.updateOne(
       {
         campaignId: input.campaignId,
         leadId: input.leadId,
@@ -255,6 +256,10 @@ export class MongoDiscoveryOutputRepository
         upsert: true,
       },
     );
+
+    return result.upsertedCount === 1
+      ? DISCOVERY_OUTPUT_SAVE_OUTCOME.INSERTED
+      : DISCOVERY_OUTPUT_SAVE_OUTCOME.EXISTING;
   }
 }
 

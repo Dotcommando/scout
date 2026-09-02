@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json --incremental false",
+    "backfill": "node dist/adapters/inbound/cli/run-discovery-backfill.js",
     "capture:contract": "node dist/adapters/inbound/cli/capture-apify-contract.js contract-capture",
     "capture:contract:inspect": "node dist/adapters/inbound/cli/capture-apify-contract.js inspect",
     "lint": "eslint .",

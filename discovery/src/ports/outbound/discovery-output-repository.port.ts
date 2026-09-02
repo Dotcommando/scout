@@ -14,7 +14,14 @@ export interface IDiscoveryOutputRepositoryPort {
   releaseDiscoveryOutputClaim(
     input: IReleaseDiscoveryOutputClaimInput,
   ): Promise<boolean>;
-  saveDiscoveryOutput(input: ISaveDiscoveryOutputInput): Promise<void>;
+  saveDiscoveryOutput(
+    input: ISaveDiscoveryOutputInput,
+  ): Promise<DISCOVERY_OUTPUT_SAVE_OUTCOME>;
+}
+
+export enum DISCOVERY_OUTPUT_SAVE_OUTCOME {
+  EXISTING = 'existing',
+  INSERTED = 'inserted',
 }
 
 export enum DISCOVERY_OUTPUT_PUBLICATION_FAILURE_KIND {

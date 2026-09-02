@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import {
   DISCOVERY_OUTPUT_STATUS,
   DISCOVERY_SCOPE_STATUS,
@@ -35,6 +33,7 @@ import {
   IDiscoveryCampaignConfiguration,
 } from './discovery-campaign-configuration.js';
 import { createDiscoveryOutputPayload } from './discovery-output-payload.js';
+import { createStableIdentifier } from './stable-identifier.js';
 
 const DISCOVERY_SCOPE_CLAIM_STALE_MILLISECONDS = 5 * 60 * 1000;
 const PROVIDER_RESULT_PAGE_SIZE = 25;
@@ -495,12 +494,6 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
       error,
     );
   }
-}
-
-function createStableIdentifier(prefix: string, ...parts: readonly string[]): string {
-  const hash = createHash('sha256').update(parts.join('\u0000')).digest('hex');
-
-  return `${prefix}-${hash}`;
 }
 
 function getUtcQuotaDay(currentTime: Date): string {
