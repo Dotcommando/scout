@@ -350,7 +350,7 @@ survive a restart.
 
 ## Step 3 — Add an isolated, typed Apify provider adapter
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -388,6 +388,19 @@ inside that adapter.
 - The Apify SDK is confined to Actor Gateway's outbound adapter.
 - Both configured actors have validated generic definitions.
 - No live provider call or change to Discovery/Qualification traffic occurred.
+
+### Done
+
+- Added `apify-client` solely to Actor Gateway and placed the SDK-backed
+  adapter behind a provider-neutral port for starting runs, reading statuses,
+  and paging datasets.
+- Added an enabled actor-definition registry for the existing Google Maps
+  capability and the Google Hotels market capability. The registry remains
+  generic: it contains only actor capability identity, provider, revision, and
+  enabled state.
+- Added fixture-based parsing tests for completed and malformed provider runs.
+  Actor Gateway lint, strict typecheck, tests, and production build pass; no
+  provider call or calling-service traffic change was made.
 
 ## Step 4 — Execute and archive a successful Apify run through the gateway
 
