@@ -7,6 +7,7 @@ describe('createQualificationRuntimeConfiguration', () => {
   it('maps valid Qualification environment values', () => {
     const configuration = createQualificationRuntimeConfiguration(
       {
+        QUALIFICATION_ACTOR_GATEWAY_URL: 'http://localhost:3003',
         QUALIFICATION_MONGODB_URI:
           'mongodb://localhost:27017/scout_qualification',
         QUALIFICATION_PORT: '3002',
@@ -30,6 +31,7 @@ describe('createQualificationRuntimeConfiguration', () => {
     expect(() =>
       createQualificationRuntimeConfiguration(
         {
+          QUALIFICATION_ACTOR_GATEWAY_URL: 'http://localhost:3003',
           QUALIFICATION_MONGODB_URI:
             'mongodb://localhost:27017/scout_qualification',
           QUALIFICATION_PORT: 'not-a-port',
@@ -48,6 +50,7 @@ describe('createQualificationRuntimeConfiguration', () => {
     expect(() =>
       createQualificationRuntimeConfiguration(
         {
+          QUALIFICATION_ACTOR_GATEWAY_URL: 'http://localhost:3003',
           QUALIFICATION_MONGODB_URI:
             'mongodb://localhost:27017/scout_qualification',
           QUALIFICATION_PORT: '3002',

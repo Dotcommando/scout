@@ -216,7 +216,7 @@ metric.
 
 ## Step 1 — Establish Actor Gateway contracts and package decision
 
-**Status:** In Progress
+**Status:** Done
 
 ### Objective
 
@@ -252,6 +252,12 @@ status, inspect an archive manifest, and retrieve raw archived content.
 - Add outbound Actor Gateway client adapters to Discovery and Qualification.
   If the package is selected, confine it to these adapters.
 
+### Execution note
+
+`@echospecter/proxy-gateway` was checked in the npm registry on 2026-09-02 and
+was unavailable (404). The gateway therefore uses local typed HTTP client
+adapters; no unverified package contract or dependency is introduced.
+
 ### Verification
 
 - Unit-test contract validation and status transitions.
@@ -267,6 +273,22 @@ status, inspect an archive manifest, and retrieve raw archived content.
 - No provider SDK type, package API, or actor-specific DTO appears outside a
   gateway infrastructure adapter.
 - Package use is evidence-based and contained to infrastructure adapters.
+
+### Done
+
+- Added the independently runnable `actor-gateway` NestJS service with generic
+  versioned HTTP request, status, archive-manifest, and archive-content
+  contracts, typed configuration, JSON logging, MongoDB readiness, and
+  graceful shutdown hooks.
+- Added contract parsers and tested pending-request status transitions.
+  Discovery and Qualification now each have an isolated typed Actor Gateway
+  HTTP client adapter and typed endpoint configuration; neither adapter is yet
+  in runtime traffic.
+- Added the gateway to Docker Compose. A compose build and startup confirmed
+  all three services ready, and a fixture request returned an explicit
+  `PENDING` status through the versioned gateway endpoint.
+- Verified `packages/contracts`, `actor-gateway`, Discovery, and Qualification
+  with lint, strict typecheck, tests, and production builds.
 
 ## Step 2 — Persist exact-request reuse, complete archives, and field catalogue
 

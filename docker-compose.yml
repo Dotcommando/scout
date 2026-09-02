@@ -21,6 +21,24 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
+  actor-gateway:
+    build:
+      context: .
+      dockerfile: actor-gateway/Dockerfile
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      ACTOR_GATEWAY_MONGODB_URI: mongodb://mongodb:27017/scout_actor_gateway
+      ACTOR_GATEWAY_PORT: '3003'
+    ports:
+      - '${ACTOR_GATEWAY_PORT}:3003'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:3003/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
   discovery:
     build:
       context: .
@@ -30,8 +48,11 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      actor-gateway:
+        condition: service_healthy
     environment:
       APIFY_API_TOKEN: ${APIFY_API_TOKEN}
+      DISCOVERY_ACTOR_GATEWAY_URL: http://actor-gateway:3003
       DISCOVERY_MONGODB_URI: mongodb://mongodb:27017/scout_discovery
       DISCOVERY_LIVE_ARTIFACT_DIRECTORY: /workspace/artifacts/discovery-live-executions
       DISCOVERY_PORT: '3001'
@@ -55,7 +76,10 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      actor-gateway:
+        condition: service_healthy
     environment:
+      QUALIFICATION_ACTOR_GATEWAY_URL: http://actor-gateway:3003
       QUALIFICATION_MONGODB_URI: mongodb://mongodb:27017/scout_qualification
       QUALIFICATION_PORT: '3002'
       QUALIFICATION_RABBITMQ_CONNECTION_TIMEOUT_MS: ${QUALIFICATION_RABBITMQ_CONNECTION_TIMEOUT_MS}

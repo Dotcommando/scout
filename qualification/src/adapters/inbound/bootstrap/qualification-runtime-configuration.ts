@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { config as loadEnvironmentFile } from 'dotenv';
 
 const QUALIFICATION_ENVIRONMENT_FILE_NAME = '.env';
+const QUALIFICATION_ACTOR_GATEWAY_URL_KEY = 'QUALIFICATION_ACTOR_GATEWAY_URL';
 const QUALIFICATION_PORT_KEY = 'QUALIFICATION_PORT';
 const QUALIFICATION_MONGODB_URI_KEY = 'QUALIFICATION_MONGODB_URI';
 const QUALIFICATION_RABBITMQ_CONNECTION_TIMEOUT_MS_KEY =
@@ -23,6 +24,7 @@ const MAXIMUM_RABBITMQ_RETRY_DELAY_MS = 3_600_000;
 const MAXIMUM_RABBITMQ_RETRY_MAX_ATTEMPTS = 10;
 
 export interface IQualificationRuntimeConfiguration {
+  readonly actorGatewayUrl: string;
   readonly mongodbUri: string;
   readonly port: number;
   readonly rabbitmqConnectionTimeoutMs: number;
@@ -49,6 +51,7 @@ export class RuntimeConfigurationValidationError extends Error {
 export class QualificationRuntimeConfiguration
   implements IQualificationRuntimeConfiguration {
   public readonly mongodbUri: string;
+  public readonly actorGatewayUrl: string;
   public readonly port: number;
   public readonly rabbitmqConnectionTimeoutMs: number;
   public readonly rabbitmqPrefetch: number;
@@ -60,6 +63,7 @@ export class QualificationRuntimeConfiguration
     const configuration = loadQualificationRuntimeConfiguration();
 
     this.mongodbUri = configuration.mongodbUri;
+    this.actorGatewayUrl = configuration.actorGatewayUrl;
     this.port = configuration.port;
     this.rabbitmqConnectionTimeoutMs = configuration.rabbitmqConnectionTimeoutMs;
     this.rabbitmqPrefetch = configuration.rabbitmqPrefetch;
@@ -102,6 +106,11 @@ export function createQualificationRuntimeConfiguration(
     configurationFilePath,
     QUALIFICATION_MONGODB_URI_KEY,
   );
+  const actorGatewayUrl = parseHttpUrl(
+    environment[QUALIFICATION_ACTOR_GATEWAY_URL_KEY],
+    configurationFilePath,
+    QUALIFICATION_ACTOR_GATEWAY_URL_KEY,
+  );
   const rabbitmqUri = parseRabbitMqUri(
     environment[QUALIFICATION_RABBITMQ_URI_KEY],
     configurationFilePath,
@@ -109,6 +118,7 @@ export function createQualificationRuntimeConfiguration(
   );
 
   return {
+    actorGatewayUrl,
     mongodbUri,
     port,
     rabbitmqConnectionTimeoutMs: parseBoundedInteger(
@@ -141,6 +151,45 @@ export function createQualificationRuntimeConfiguration(
     ),
     rabbitmqUri,
   };
+}
+
+function parseHttpUrl(
+  value: string | undefined,
+  configurationFilePath: string,
+  fieldPath: string,
+): string {
+  const url = readRequiredValue(value, configurationFilePath, fieldPath);
+
+  try {
+    const parsedUrl = new URL(url);
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      throw new RuntimeConfigurationValidationError(
+        configurationFilePath,
+        fieldPath,
+        'must use the http:// or https:// scheme',
+      );
+    }
+    if (parsedUrl.hostname.length === 0) {
+      throw new RuntimeConfigurationValidationError(
+        configurationFilePath,
+        fieldPath,
+        'must include a hostname',
+      );
+    }
+  } catch (error: unknown) {
+    if (error instanceof RuntimeConfigurationValidationError) {
+      throw error;
+    }
+
+    throw new RuntimeConfigurationValidationError(
+      configurationFilePath,
+      fieldPath,
+      'must be a valid HTTP URL',
+    );
+  }
+
+  return url.replace(/\/$/, '');
 }
 
 function parsePort(

@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { config as loadEnvironmentFile } from 'dotenv';
 
 const DISCOVERY_ENVIRONMENT_FILE_NAME = '.env';
+const DISCOVERY_ACTOR_GATEWAY_URL_KEY = 'DISCOVERY_ACTOR_GATEWAY_URL';
 const DISCOVERY_LIVE_ARTIFACT_DIRECTORY_KEY = 'DISCOVERY_LIVE_ARTIFACT_DIRECTORY';
 const DISCOVERY_PORT_KEY = 'DISCOVERY_PORT';
 const DISCOVERY_MONGODB_URI_KEY = 'DISCOVERY_MONGODB_URI';
@@ -25,6 +26,7 @@ const MAXIMUM_RABBITMQ_RETRY_DELAY_MS = 3_600_000;
 const MAXIMUM_RABBITMQ_RETRY_MAX_ATTEMPTS = 10;
 
 export interface IDiscoveryRuntimeConfiguration {
+  readonly actorGatewayUrl: string;
   readonly apifyApiToken: string;
   readonly liveArtifactDirectory: string;
   readonly mongodbUri: string;
@@ -53,6 +55,7 @@ export class RuntimeConfigurationValidationError extends Error {
 export class DiscoveryRuntimeConfiguration
   implements IDiscoveryRuntimeConfiguration {
   public readonly apifyApiToken: string;
+  public readonly actorGatewayUrl: string;
   public readonly liveArtifactDirectory: string;
   public readonly mongodbUri: string;
   public readonly port: number;
@@ -66,6 +69,7 @@ export class DiscoveryRuntimeConfiguration
     const configuration = loadDiscoveryRuntimeConfiguration();
 
     this.apifyApiToken = configuration.apifyApiToken;
+    this.actorGatewayUrl = configuration.actorGatewayUrl;
     this.liveArtifactDirectory = configuration.liveArtifactDirectory;
     this.mongodbUri = configuration.mongodbUri;
     this.port = configuration.port;
@@ -115,6 +119,11 @@ export function createDiscoveryRuntimeConfiguration(
     configurationFilePath,
     APIFY_API_TOKEN_KEY,
   );
+  const actorGatewayUrl = parseHttpUrl(
+    environment[DISCOVERY_ACTOR_GATEWAY_URL_KEY],
+    configurationFilePath,
+    DISCOVERY_ACTOR_GATEWAY_URL_KEY,
+  );
   const liveArtifactDirectory = readRequiredValue(
     environment[DISCOVERY_LIVE_ARTIFACT_DIRECTORY_KEY],
     configurationFilePath,
@@ -128,6 +137,7 @@ export function createDiscoveryRuntimeConfiguration(
 
   return {
     apifyApiToken,
+    actorGatewayUrl,
     liveArtifactDirectory,
     mongodbUri,
     port,
@@ -161,6 +171,45 @@ export function createDiscoveryRuntimeConfiguration(
     ),
     rabbitmqUri,
   };
+}
+
+function parseHttpUrl(
+  value: string | undefined,
+  configurationFilePath: string,
+  fieldPath: string,
+): string {
+  const url = readRequiredValue(value, configurationFilePath, fieldPath);
+
+  try {
+    const parsedUrl = new URL(url);
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      throw new RuntimeConfigurationValidationError(
+        configurationFilePath,
+        fieldPath,
+        'must use the http:// or https:// scheme',
+      );
+    }
+    if (parsedUrl.hostname.length === 0) {
+      throw new RuntimeConfigurationValidationError(
+        configurationFilePath,
+        fieldPath,
+        'must include a hostname',
+      );
+    }
+  } catch (error: unknown) {
+    if (error instanceof RuntimeConfigurationValidationError) {
+      throw error;
+    }
+
+    throw new RuntimeConfigurationValidationError(
+      configurationFilePath,
+      fieldPath,
+      'must be a valid HTTP URL',
+    );
+  }
+
+  return url.replace(/\/$/, '');
 }
 
 function parsePort(
