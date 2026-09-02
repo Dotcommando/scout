@@ -15,11 +15,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scout/contracts": "file:../packages/contracts",
     "@nestjs/common": "11.1.12",
     "@nestjs/core": "11.1.12",
     "@nestjs/platform-express": "11.1.12",
     "@nestjs/schedule": "6.1.1",
+    "@scout/contracts": "file:../packages/contracts",
+    "@types/amqplib": "0.10.8",
+    "amqplib": "2.0.1",
     "apify-client": "2.20.0",
     "dotenv": "17.2.3",
     "mongodb": "7.0.0",

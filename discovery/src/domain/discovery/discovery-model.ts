@@ -28,7 +28,9 @@ export enum PROVIDER_RUN_STATUS {
 export const PROVIDER_RUN_STATUS_ARRAY = Object.values(PROVIDER_RUN_STATUS);
 
 export enum DISCOVERY_OUTPUT_STATUS {
+  FAILED = 'failed',
   PENDING = 'pending',
+  PUBLISHING = 'publishing',
   PUBLISHED = 'published',
 }
 

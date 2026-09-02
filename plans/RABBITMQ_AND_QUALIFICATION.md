@@ -156,7 +156,7 @@ provider DTO.
 
 ## Step 2 — Publish the Discovery outbox through RabbitMQ with recovery
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -207,6 +207,24 @@ turn it into a new lead.
 - Discovery never marks an output published before broker confirmation.
 - A lost state update after confirmation is harmless to downstream processing.
 - Discovery remains healthy and restart-safe when Qualification is stopped.
+
+### Done
+
+- Added durable output leases, publication attempt/failure data, retry timing,
+  confirmation timestamps, atomic MongoDB claims, and selection indexes. A
+  broker-confirmed output is marked `PUBLISHED` only by the matching lease
+  holder; a missing state update leaves it reclaimable and therefore safe for
+  at-least-once redelivery.
+- Added the `amqplib` RabbitMQ publisher adapter with durable exchange
+  declaration, persistent mandatory messages, publisher confirms, contract
+  serialization, and routing/connection/confirmation/payload failure
+  classification. Added a restart-safe scheduled publishing use case and
+  structured failure logs with campaign, event, output, retry, and broker
+  context.
+- Added application, MongoDB, and RabbitMQ integration coverage for confirmed
+  publication, retry persistence, confirm-state loss, concurrent/stale claims,
+  mandatory routing, and persistent delivery. Verified Discovery remains ready
+  while Qualification is stopped, then restored Qualification.
 
 ## Step 3 — Build Qualification's generic domain, profile configuration, and durable records
 

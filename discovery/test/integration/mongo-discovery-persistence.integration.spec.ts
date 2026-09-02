@@ -254,6 +254,76 @@ describe('Mongo Discovery persistence', () => {
     expect(persistedOutput?.payload).toEqual(output.payload);
   });
 
+  it('atomically claims one output and reclaims it after an expired lease', async () => {
+    const output = {
+      campaignId: `${CAMPAIGN_ID}-publication`,
+      createdAt: new Date('2026-09-01T06:00:00.000Z'),
+      leadId: 'publication-lead-1',
+      outputId: 'publication-output-1',
+      payload: {
+        campaignId: `${CAMPAIGN_ID}-publication`,
+        correlationId: 'publication-correlation-1',
+        eventId: 'publication-output-1',
+        lead: {
+          externalId: 'publication-external-1',
+          leadId: 'publication-lead-1',
+          name: 'Publication lead',
+          sourceKind: DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
+        },
+        occurredAt: new Date('2026-09-01T06:00:00.000Z'),
+        schemaVersion: 1,
+      },
+      status: DISCOVERY_OUTPUT_STATUS.PENDING,
+    };
+    const existingOutputs = await outputRepository.claimPendingDiscoveryOutputs({
+      claimedAt: new Date('2026-09-01T05:30:00.000Z'),
+      leaseExpiresAt: new Date('2026-09-01T05:31:00.000Z'),
+      limit: 10,
+      retryEligibleAt: new Date('2026-09-01T05:30:00.000Z'),
+      workerId: 'publisher-cleanup',
+    });
+
+    await Promise.all(
+      existingOutputs.map((existingOutput) =>
+        outputRepository.confirmDiscoveryOutputPublication({
+          confirmedAt: new Date('2026-09-01T05:30:00.000Z'),
+          outputId: existingOutput.outputId,
+          workerId: 'publisher-cleanup',
+        }),
+      ),
+    );
+    await outputRepository.saveDiscoveryOutput(output);
+
+    const concurrentClaims = await Promise.all(
+      ['publisher-a', 'publisher-b'].map((workerId) =>
+        outputRepository.claimPendingDiscoveryOutputs({
+          claimedAt: new Date('2026-09-01T06:01:00.000Z'),
+          leaseExpiresAt: new Date('2026-09-01T06:02:00.000Z'),
+          limit: 1,
+          retryEligibleAt: new Date('2026-09-01T06:01:00.000Z'),
+          workerId,
+        }),
+      ),
+    );
+
+    expect(concurrentClaims.flat()).toHaveLength(1);
+
+    const reclaimedOutputs = await outputRepository.claimPendingDiscoveryOutputs({
+      claimedAt: new Date('2026-09-01T06:03:00.000Z'),
+      leaseExpiresAt: new Date('2026-09-01T06:04:00.000Z'),
+      limit: 1,
+      retryEligibleAt: new Date('2026-09-01T06:03:00.000Z'),
+      workerId: 'publisher-recovery',
+    });
+
+    expect(reclaimedOutputs).toEqual([
+      expect.objectContaining({
+        outputId: 'publication-output-1',
+        publishAttemptCount: 2,
+      }),
+    ]);
+  });
+
   it('does not exceed the daily quota under concurrent reservations', async () => {
     const reservations = await Promise.all(
       Array.from({ length: 10 }, () =>

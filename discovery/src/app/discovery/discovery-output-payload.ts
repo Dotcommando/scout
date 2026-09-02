@@ -1,4 +1,10 @@
 import {
+  DISCOVERED_LEAD_EVENT_TYPE,
+  DISCOVERED_LEAD_SCHEMA_VERSION,
+  IDiscoveredLeadEvent,
+} from '@scout/contracts';
+
+import {
   DISCOVERY_SOURCE_KIND,
   Lead,
 } from '../../domain/discovery/discovery-model.js';
@@ -56,5 +62,37 @@ export function createDiscoveryOutputPayload(
     },
     occurredAt: input.occurredAt,
     schemaVersion: DISCOVERY_OUTPUT_SCHEMA_VERSION,
+  };
+}
+
+export function toDiscoveredLeadEvent(
+  payload: IDiscoveryOutputPayload,
+): IDiscoveredLeadEvent {
+  if (payload.schemaVersion !== DISCOVERED_LEAD_SCHEMA_VERSION.V1) {
+    throw new Error(`unsupported discovery output schema version ${payload.schemaVersion}`);
+  }
+
+  return {
+    campaignId: payload.campaignId,
+    correlationId: payload.correlationId,
+    eventId: payload.eventId,
+    eventType: DISCOVERED_LEAD_EVENT_TYPE.DISCOVERED_LEAD,
+    lead: {
+      ...(payload.lead.address === undefined
+        ? {}
+        : { address: payload.lead.address }),
+      externalId: payload.lead.externalId,
+      leadId: payload.lead.leadId,
+      name: payload.lead.name,
+      ...(payload.lead.phoneNumber === undefined
+        ? {}
+        : { phoneNumber: payload.lead.phoneNumber }),
+      sourceKind: payload.lead.sourceKind,
+      ...(payload.lead.websiteUrl === undefined
+        ? {}
+        : { websiteUrl: payload.lead.websiteUrl }),
+    },
+    occurredAt: payload.occurredAt.toISOString(),
+    schemaVersion: DISCOVERED_LEAD_SCHEMA_VERSION.V1,
   };
 }

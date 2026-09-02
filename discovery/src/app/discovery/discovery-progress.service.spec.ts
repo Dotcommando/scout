@@ -12,7 +12,12 @@ import {
   IDiscoveryCampaignConfigurationPort,
 } from '../../ports/outbound/discovery-campaign-configuration.port.js';
 import {
+  IClaimedDiscoveryOutput,
+  IClaimPendingDiscoveryOutputsInput,
+  IConfirmDiscoveryOutputPublicationInput,
   IDiscoveryOutputRepositoryPort,
+  IRecordDiscoveryOutputPublicationFailureInput,
+  IReleaseDiscoveryOutputClaimInput,
   ISaveDiscoveryOutputInput,
 } from '../../ports/outbound/discovery-output-repository.port.js';
 import {
@@ -418,6 +423,38 @@ class FakeClock implements IClockPort {
 
 class FakeDiscoveryOutputRepository implements IDiscoveryOutputRepositoryPort {
   public readonly outputs: ISaveDiscoveryOutputInput[] = [];
+
+  public async claimPendingDiscoveryOutputs(
+    input: IClaimPendingDiscoveryOutputsInput,
+  ): Promise<readonly IClaimedDiscoveryOutput[]> {
+    void input;
+
+    return [];
+  }
+
+  public async confirmDiscoveryOutputPublication(
+    input: IConfirmDiscoveryOutputPublicationInput,
+  ): Promise<boolean> {
+    void input;
+
+    return true;
+  }
+
+  public async recordDiscoveryOutputPublicationFailure(
+    input: IRecordDiscoveryOutputPublicationFailureInput,
+  ): Promise<boolean> {
+    void input;
+
+    return true;
+  }
+
+  public async releaseDiscoveryOutputClaim(
+    input: IReleaseDiscoveryOutputClaimInput,
+  ): Promise<boolean> {
+    void input;
+
+    return true;
+  }
 
   public async saveDiscoveryOutput(input: ISaveDiscoveryOutputInput): Promise<void> {
     if (this.outputs.some((output) => output.outputId === input.outputId)) {
