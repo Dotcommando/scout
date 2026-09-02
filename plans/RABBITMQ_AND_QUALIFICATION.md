@@ -303,7 +303,7 @@ with machine-readable reasons and the exact profile version.
 
 ## Step 4 — Consume Discovery events idempotently and emit qualification results safely
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -352,6 +352,27 @@ from the dead-letter path.
 - Consumer acknowledgement cannot make a lost decision appear completed.
 - Redelivery is idempotent and auditable.
 - Discovery and Qualification continue to have separate persistence ownership.
+
+### Done
+
+- Added a durable RabbitMQ consumer for the versioned Discovery contract. It
+  declares the stable main, retry, and dead-letter queues, uses manual ACKs,
+  bounded prefetch, and validates both the message envelope and matching AMQP
+  message/correlation identifiers before Qualification application code.
+- The consumer ACKs only after durable Qualification processing, including
+  idempotent duplicate completion. Active executions are deferred through the
+  bounded retry path rather than acknowledged, so a crashed worker cannot make
+  an incomplete decision appear complete. Retry and dead-letter forwarding use
+  publisher confirms before ACKing the original delivery.
+- Added graceful intake shutdown with consumer cancellation, in-flight work
+  completion, and broker connection closure. Structured logs now include
+  broker message ID, campaign, lead, decision, profile version, attempt,
+  duration, and failure classification.
+- Added contract/handling tests for malformed input, durable completion,
+  duplicates, active claims, retry, and terminal input. Ran both services'
+  quality gates. A local Docker end-to-end run seeded a Discovery outbox event,
+  observed broker-confirmed publication and one Qualification decision, then
+  replayed the same event and confirmed one inbox, execution, and decision.
 
 ## Step 5 — Add the known-affiliation exclusion policy and first hospitality profile
 

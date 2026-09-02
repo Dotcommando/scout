@@ -35,5 +35,6 @@ Discovery publishes persistent messages with publisher confirms and mandatory
 routing. Qualification consumes with manual acknowledgements and the bounded
 prefetch configured for that service. Retry metadata carries the attempt count;
 after the configured maximum, processing routes to the dead-letter queue rather
-than requeueing indefinitely. Queue declarations and publishing/consumption are
-introduced in later plan steps; these names are the stable operational contract.
+than requeueing indefinitely. Qualification moves retry and dead-letter
+messages with publisher confirms before acknowledging the original delivery;
+the retry queues dead-letter back to the Discovery exchange after their TTL.

@@ -12,17 +12,24 @@ const SENSITIVE_FIELD_NAMES = new Set([
 ]);
 
 export interface IQualificationStructuredLogEntry {
+  readonly attempt?: number;
+  readonly brokerMessageId?: string;
   readonly brokerOperation?: string;
+  readonly campaignId?: string;
   readonly className: string;
   readonly correlationId: string;
+  readonly decision?: string;
   readonly durationMs?: number;
   readonly error?: ILoggedError;
   readonly eventId?: string;
+  readonly failureKind?: string;
   readonly input?: unknown;
+  readonly leadId?: string;
   readonly level: string;
   readonly message?: unknown;
   readonly method: string;
   readonly operation: string;
+  readonly profileVersion?: number;
   readonly retryable: boolean;
   readonly service: string;
 }
@@ -34,15 +41,21 @@ interface ILoggedError {
 }
 
 interface IQualificationFailureLogInput {
+  readonly attempt?: number;
+  readonly brokerMessageId?: string;
   readonly brokerOperation?: string;
+  readonly campaignId?: string;
   readonly className: string;
   readonly correlationId: string;
   readonly durationMs?: number;
   readonly error: unknown;
   readonly eventId?: string;
+  readonly failureKind?: string;
   readonly input?: unknown;
+  readonly leadId?: string;
   readonly method: string;
   readonly operation: string;
+  readonly profileVersion?: number;
   readonly retryable: boolean;
 }
 
@@ -96,18 +109,30 @@ export function writeQualificationFailureLog(
   input: IQualificationFailureLogInput,
 ): void {
   writeQualificationLog({
+    ...(input.attempt === undefined ? {} : { attempt: input.attempt }),
+    ...(input.brokerMessageId === undefined
+      ? {}
+      : { brokerMessageId: input.brokerMessageId }),
     ...(input.brokerOperation === undefined
       ? {}
       : { brokerOperation: input.brokerOperation }),
+    ...(input.campaignId === undefined ? {} : { campaignId: input.campaignId }),
     className: input.className,
     correlationId: input.correlationId,
     ...(input.durationMs === undefined ? {} : { durationMs: input.durationMs }),
     error: toLoggedError(input.error),
     ...(input.eventId === undefined ? {} : { eventId: input.eventId }),
+    ...(input.failureKind === undefined
+      ? {}
+      : { failureKind: input.failureKind }),
     input: input.input,
+    ...(input.leadId === undefined ? {} : { leadId: input.leadId }),
     level: 'error',
     method: input.method,
     operation: input.operation,
+    ...(input.profileVersion === undefined
+      ? {}
+      : { profileVersion: input.profileVersion }),
     retryable: input.retryable,
     service: 'qualification',
   });

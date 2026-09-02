@@ -8,23 +8,18 @@ import { connect } from 'amqplib';
 
 import { DiscoveryRuntimeConfiguration } from '../../src/adapters/inbound/bootstrap/discovery-runtime-configuration.js';
 import { RabbitMqDiscoveredLeadMessagePublisher } from '../../src/adapters/outbound/rabbitmq/rabbitmq-discovered-lead-message-publisher.js';
-import { DiscoveryMessagePublicationError } from '../../src/app/discovery/discovery-output-publisher.service.js';
 
 const DISCOVERED_LEAD_EXCHANGE = 'discovery.lead.v1';
 const DISCOVERED_LEAD_ROUTING_KEY = 'lead.discovered.v1';
 
 describe('RabbitMqDiscoveredLeadMessagePublisher', () => {
-  it('classifies mandatory-routing failures when no queue is bound', async () => {
+  it('routes an event through the declared Qualification consumer topology', async () => {
     const publisher = new RabbitMqDiscoveredLeadMessagePublisher(
       new DiscoveryRuntimeConfiguration(),
     );
 
-    await expect(
-      publisher.publishDiscoveredLead(createDiscoveredLeadEvent()),
-    ).rejects.toMatchObject({
-      kind: 'mandatory-routing',
-      retryable: true,
-    } satisfies Partial<DiscoveryMessagePublicationError>);
+    await expect(publisher.publishDiscoveredLead(createDiscoveredLeadEvent()))
+      .resolves.toBeUndefined();
   });
 
   it('routes a persistent, confirmed discovered-lead event', async () => {

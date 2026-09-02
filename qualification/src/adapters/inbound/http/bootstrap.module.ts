@@ -9,6 +9,7 @@ import { MongoQualifiedLeadOutputRepository } from '../../outbound/mongodb/mongo
 import { RabbitMqConnectionVerifier } from '../../outbound/rabbitmq/rabbitmq-connection-verifier.js';
 import { QualificationRuntimeConfiguration } from '../bootstrap/qualification-runtime-configuration.js';
 import { QualificationProfileConfiguration } from '../configuration/qualification-profile-configuration.js';
+import { RabbitMqDiscoveredLeadConsumer } from '../rabbitmq/rabbitmq-discovered-lead-consumer.js';
 import { HealthController } from './health.controller.js';
 
 @Module({
@@ -22,6 +23,7 @@ import { HealthController } from './health.controller.js';
     MongoQualificationInboxRepository,
     MongoQualifiedLeadOutputRepository,
     RabbitMqConnectionVerifier,
+    RabbitMqDiscoveredLeadConsumer,
     {
       provide: QualificationService,
       useFactory: (
