@@ -16,6 +16,7 @@ interface IQualificationDecisionDocument extends IQualificationDecisionRecord {
     readonly decision: QualificationDecision['decision'];
     readonly reasons: readonly {
       readonly code: QualificationReason['code'];
+      readonly context?: QualificationReason['context'];
       readonly ruleKind: QualificationReason['ruleKind'];
     }[];
   };
@@ -74,6 +75,7 @@ export class MongoQualificationDecisionRepository
             decision: input.decision.decision,
             reasons: input.decision.reasons.map((reason) => ({
               code: reason.code,
+              ...(reason.context === undefined ? {} : { context: reason.context }),
               ruleKind: reason.ruleKind,
             })),
           },
@@ -92,7 +94,11 @@ function toDecisionRecord(
     decision: new QualificationDecision(
       document.decision.decision,
       document.decision.reasons.map(
-        (reason) => new QualificationReason(reason.code, reason.ruleKind),
+        (reason) => new QualificationReason(
+          reason.code,
+          reason.ruleKind,
+          reason.context,
+        ),
       ),
     ),
   };

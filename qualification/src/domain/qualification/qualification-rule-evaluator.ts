@@ -1,6 +1,13 @@
 import {
+  IKnownAffiliationMatch,
+  IKnownAffiliationRule,
+} from './known-affiliation-policy.js';
+import {
   ILeadSnapshot,
   IQualificationProfile,
+  IQualificationReasonContext,
+  KNOWN_AFFILIATION_EVIDENCE,
+  KNOWN_AFFILIATION_MATCH_STRATEGY,
   QUALIFICATION_DECISION,
   QUALIFICATION_REASON_CODE,
   QUALIFICATION_RULE_KIND,
@@ -11,7 +18,35 @@ import {
 export function evaluateQualificationProfile(
   profile: IQualificationProfile,
   lead: ILeadSnapshot,
+  knownAffiliationRule?: IKnownAffiliationRule,
 ): QualificationDecision {
+  const affiliationMatch = knownAffiliationRule?.findMatch(
+    lead,
+    profile.knownAffiliationScopes,
+  );
+
+  if (affiliationMatch !== null && affiliationMatch !== undefined) {
+    if (affiliationMatch.evidence === KNOWN_AFFILIATION_EVIDENCE.AMBIGUOUS) {
+      return indeterminate(
+        QUALIFICATION_REASON_CODE.POSSIBLE_AFFILIATION,
+        affiliationMatch,
+      );
+    }
+
+    return rejected(
+      affiliationMatch.matchStrategy
+        === KNOWN_AFFILIATION_MATCH_STRATEGY.WEBSITE_HOST_OR_SUBDOMAIN
+        ? QUALIFICATION_REASON_CODE.KNOWN_AFFILIATION_WEBSITE_HOST
+        : QUALIFICATION_REASON_CODE.KNOWN_AFFILIATION_NAME,
+      QUALIFICATION_RULE_KIND.KNOWN_AFFILIATION,
+      {
+        catalogEntryId: affiliationMatch.catalogEntryId,
+        catalogRevision: affiliationMatch.catalogRevision,
+        matchStrategy: affiliationMatch.matchStrategy,
+      },
+    );
+  }
+
   const sourceExcluded = profile.excludedSourceIdentities.some(
     (exclusion) => exclusion.sourceKind === lead.sourceKind
       && exclusion.externalId === lead.externalId,
@@ -105,8 +140,26 @@ function isMissing(value: string | undefined): boolean {
 function rejected(
   code: QUALIFICATION_REASON_CODE,
   ruleKind: QUALIFICATION_RULE_KIND,
+  context?: IQualificationReasonContext,
 ): QualificationDecision {
   return new QualificationDecision(QUALIFICATION_DECISION.REJECTED, [
-    new QualificationReason(code, ruleKind),
+    new QualificationReason(code, ruleKind, context),
+  ]);
+}
+
+function indeterminate(
+  code: QUALIFICATION_REASON_CODE,
+  match: IKnownAffiliationMatch,
+): QualificationDecision {
+  return new QualificationDecision(QUALIFICATION_DECISION.INDETERMINATE, [
+    new QualificationReason(
+      code,
+      QUALIFICATION_RULE_KIND.KNOWN_AFFILIATION,
+      {
+        catalogEntryId: match.catalogEntryId,
+        catalogRevision: match.catalogRevision,
+        matchStrategy: match.matchStrategy,
+      },
+    ),
   ]);
 }

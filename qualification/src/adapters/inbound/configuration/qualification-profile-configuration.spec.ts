@@ -1,3 +1,4 @@
+import { KNOWN_AFFILIATION_SCOPE } from '../../../domain/qualification/qualification-model.js';
 import {
   parseQualificationProfileConfiguration,
   QualificationProfileConfigurationValidationError,
@@ -17,6 +18,12 @@ describe('parseQualificationProfileConfiguration', () => {
     );
 
     expect(first.profiles[0]?.version).toBe(2);
+    expect(first.profiles[0]?.knownAffiliationScopes).toEqual([
+      KNOWN_AFFILIATION_SCOPE.FRANCHISE,
+      KNOWN_AFFILIATION_SCOPE.MANAGEMENT,
+      KNOWN_AFFILIATION_SCOPE.COLLECTION,
+      KNOWN_AFFILIATION_SCOPE.SOFT_BRAND,
+    ]);
     expect(first.profiles[0]?.contentHash).toBe(reordered.profiles[0]?.contentHash);
   });
 
@@ -71,5 +78,10 @@ profiles:
         externalId: ${externalId}
     excludedWebsiteHosts:
       - ${host}
+    knownAffiliationScopes:
+      - franchise
+      - management
+      - collection
+      - soft-brand
 `;
 }

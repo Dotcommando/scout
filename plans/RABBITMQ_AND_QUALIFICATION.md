@@ -376,7 +376,7 @@ from the dead-letter path.
 
 ## Step 5 — Add the known-affiliation exclusion policy and first hospitality profile
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -487,6 +487,25 @@ catalog entry and matching rule that caused the result.
   that a property is independent.
 - The initial campaign's treatment of franchise, managed, collection, and
   soft-brand properties is explicit and tested.
+
+### Done
+
+- Added a generic, deterministic known-affiliation rule and configuration
+  adapter. The core uses only catalog entry IDs, aliases, official hosts,
+  match strategy, evidence, and affiliation scope; vertical data remains in
+  YAML. Name normalization is Unicode NFKC plus case folding and bounded
+  punctuation/token handling, without fuzzy matching or scores.
+- Added the versioned catalog in `config/qualification/known-affiliations.yaml`
+  with official portfolio URLs for global groups and separately reviewed GB/IE
+  regional groups. The first profile explicitly excludes franchise,
+  management, collection, and soft-brand scopes.
+- Qualification records the matching catalog entry ID, catalog revision, and
+  match strategy inside the structured decision reason. Confirmed official-host
+  or name matches reject; configured ambiguous aliases are indeterminate; no
+  match continues ordinary qualification and does not assert independence.
+- Added pure policy/configuration tests and MongoDB audit-context coverage.
+  Ran Qualification and Discovery lint, strict typecheck, tests, and builds;
+  rebuilt Qualification in Docker Compose and verified readiness.
 
 ## Step 6 — Backfill existing Discovery leads through the normal outbox path
 

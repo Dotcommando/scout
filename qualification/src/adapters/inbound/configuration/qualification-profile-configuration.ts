@@ -10,6 +10,7 @@ import {
   IQualificationProfile,
   IQualificationRequirements,
   ISourceIdentityExclusion,
+  KNOWN_AFFILIATION_SCOPE,
 } from '../../../domain/qualification/qualification-model.js';
 import { IQualificationProfileConfigurationPort } from '../../../ports/outbound/qualification-profile-configuration.port.js';
 
@@ -159,6 +160,11 @@ function parseProfiles(
       configurationFilePath,
       `${profilePath}.excludedWebsiteHosts`,
     );
+    const knownAffiliationScopes = parseKnownAffiliationScopes(
+      profile.get('knownAffiliationScopes'),
+      configurationFilePath,
+      `${profilePath}.knownAffiliationScopes`,
+    );
 
     return {
       campaignId,
@@ -168,12 +174,14 @@ function parseProfiles(
         excludedWebsiteHosts,
         profileId,
         requirements,
+        knownAffiliationScopes,
         profileVersion,
       ),
       excludedSourceIdentities,
       excludedWebsiteHosts,
       profileId,
       requirements,
+      knownAffiliationScopes,
       version: profileVersion,
     };
   });
@@ -185,6 +193,7 @@ function createProfileContentHash(
   excludedWebsiteHosts: readonly string[],
   profileId: string,
   requirements: IQualificationRequirements,
+  knownAffiliationScopes: readonly KNOWN_AFFILIATION_SCOPE[],
   version: number,
 ): string {
   const canonicalContent = JSON.stringify({
@@ -197,10 +206,52 @@ function createProfileContentHash(
     excludedWebsiteHosts: [...excludedWebsiteHosts].sort(),
     profileId,
     requirements,
+    knownAffiliationScopes: [...knownAffiliationScopes].sort(),
     version,
   });
 
   return createHash('sha256').update(canonicalContent).digest('hex');
+}
+
+function parseKnownAffiliationScopes(
+  value: unknown,
+  configurationFilePath: string,
+  fieldPath: string,
+): readonly KNOWN_AFFILIATION_SCOPE[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new QualificationProfileConfigurationValidationError(
+      configurationFilePath,
+      fieldPath,
+      'must be a non-empty array',
+    );
+  }
+
+  const scopes = value.map((scopeValue, index) => {
+    if (
+      scopeValue === KNOWN_AFFILIATION_SCOPE.COLLECTION
+      || scopeValue === KNOWN_AFFILIATION_SCOPE.FRANCHISE
+      || scopeValue === KNOWN_AFFILIATION_SCOPE.MANAGEMENT
+      || scopeValue === KNOWN_AFFILIATION_SCOPE.SOFT_BRAND
+    ) {
+      return scopeValue;
+    }
+
+    throw new QualificationProfileConfigurationValidationError(
+      configurationFilePath,
+      `${fieldPath}[${index}]`,
+      'must be a supported affiliation scope',
+    );
+  });
+
+  if (new Set(scopes).size !== scopes.length) {
+    throw new QualificationProfileConfigurationValidationError(
+      configurationFilePath,
+      fieldPath,
+      'must not contain duplicates',
+    );
+  }
+
+  return scopes;
 }
 
 function parseRequirements(

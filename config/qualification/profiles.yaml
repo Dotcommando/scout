@@ -10,3 +10,8 @@ profiles:
       websiteUrl: false
     excludedSourceIdentities: []
     excludedWebsiteHosts: []
+    knownAffiliationScopes:
+      - franchise
+      - management
+      - collection
+      - soft-brand

@@ -14,6 +14,9 @@ import {
   QUALIFY_LEAD_OUTCOME,
 } from '../../ports/inbound/qualify-lead.use-case.js';
 import {
+  IKnownAffiliationPolicyPort,
+} from '../../ports/outbound/known-affiliation-policy.port.js';
+import {
   IQualificationDecisionRepositoryPort,
 } from '../../ports/outbound/qualification-decision-repository.port.js';
 import {
@@ -37,6 +40,7 @@ export class QualificationService implements IQualifyLeadUseCase {
     private readonly decisionRepository: IQualificationDecisionRepositoryPort,
     private readonly executionRepository: IQualificationExecutionRepositoryPort,
     private readonly inboxRepository: IQualificationInboxRepositoryPort,
+    private readonly knownAffiliationPolicy: IKnownAffiliationPolicyPort,
     private readonly profileConfiguration: IQualificationProfileConfigurationPort,
     private readonly qualifiedLeadOutputRepository: IQualifiedLeadOutputRepositoryPort,
   ) {}
@@ -95,7 +99,11 @@ export class QualificationService implements IQualifyLeadUseCase {
       };
     }
 
-    const decision = evaluateQualificationProfile(profile, input.lead);
+    const decision = evaluateQualificationProfile(
+      profile,
+      input.lead,
+      this.knownAffiliationPolicy,
+    );
 
     await this.decisionRepository.saveDecision({
       campaignId: input.campaignId,

@@ -5,6 +5,7 @@ import { MongoQualificationExecutionRepository } from '../../src/adapters/outbou
 import { MongoQualificationInboxRepository } from '../../src/adapters/outbound/mongodb/mongo-qualification-inbox-repository.js';
 import { MongoQualifiedLeadOutputRepository } from '../../src/adapters/outbound/mongodb/mongo-qualified-lead-output-repository.js';
 import {
+  KNOWN_AFFILIATION_MATCH_STRATEGY,
   QUALIFICATION_DECISION,
   QUALIFICATION_EXECUTION_STATUS,
   QUALIFICATION_INPUT_STATUS,
@@ -82,6 +83,11 @@ describe('Mongo Qualification persistence', () => {
         new QualificationReason(
           QUALIFICATION_REASON_CODE.QUALIFICATION_RULES_SATISFIED,
           QUALIFICATION_RULE_KIND.REQUIRED_NAME,
+          {
+            catalogEntryId: 'catalog-entry-1',
+            catalogRevision: 'catalog-r1',
+            matchStrategy: KNOWN_AFFILIATION_MATCH_STRATEGY.EXACT_TOKEN_SEQUENCE_NAME,
+          },
         ),
       ],
     );
@@ -136,6 +142,15 @@ describe('Mongo Qualification persistence', () => {
     expect(
       await databaseClient.getDatabase().collection('qualified_lead_outputs').countDocuments(),
     ).toBe(1);
+    expect((await decisionRepository.findDecision(
+      input.campaignId,
+      input.lead.leadId,
+      1,
+    ))?.decision.reasons[0]?.context).toEqual({
+      catalogEntryId: 'catalog-entry-1',
+      catalogRevision: 'catalog-r1',
+      matchStrategy: KNOWN_AFFILIATION_MATCH_STRATEGY.EXACT_TOKEN_SEQUENCE_NAME,
+    });
   });
 
   it('atomically assigns one profile execution to concurrent workers', async () => {

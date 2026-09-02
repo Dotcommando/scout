@@ -1,0 +1,414 @@
+revision: 2026-09-02-r1
+entries:
+  - entryId: marriott-core
+    ownerLabel: Marriott International
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management]
+    sourceUrl: https://help.marriott.com/s/article/Article-24483
+    aliases:
+      - value: Marriott
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Courtyard
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Sheraton
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Westin
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: JW Marriott
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Ritz Carlton
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: St Regis
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Renaissance
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Le Meridien
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Four Points
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Fairfield
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Aloft
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Moxy
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Residence Inn
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [marriott.com]
+  - entryId: marriott-collections
+    ownerLabel: Marriott International Collections
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [collection, soft-brand]
+    sourceUrl: https://help.marriott.com/s/article/Article-24483
+    aliases:
+      - value: Autograph Collection
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Tribute Portfolio
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Design Hotels
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: W
+        strategy: exact-token-sequence-name
+        evidence: ambiguous
+    websiteHosts: [autograph-hotels.marriott.com, tributeportfolio.com]
+  - entryId: hilton
+    ownerLabel: Hilton
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management, collection, soft-brand]
+    sourceUrl: https://stories.hilton.com/brands
+    aliases:
+      - value: Hilton
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Waldorf Astoria
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Conrad
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Curio Collection
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: DoubleTree
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Hampton
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Hilton Garden Inn
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Homewood Suites
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Home2 Suites
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Spark by Hilton
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [hilton.com]
+  - entryId: ihg
+    ownerLabel: IHG Hotels and Resorts
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management, collection, soft-brand]
+    sourceUrl: https://www.ihgplc.com/en/our-brands
+    aliases:
+      - value: InterContinental
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Kimpton
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Hotel Indigo
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Crowne Plaza
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Holiday Inn
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Holiday Inn Express
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Staybridge Suites
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Candlewood Suites
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [ihg.com]
+  - entryId: accor
+    ownerLabel: Accor
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management, collection, soft-brand]
+    sourceUrl: https://group.accor.com/en/brands-and-experiences/our-experience-portfolio
+    aliases:
+      - value: Raffles
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Fairmont
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Sofitel
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: MGallery
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Pullman
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Novotel
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Mercure
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: ibis
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [all.accor.com]
+  - entryId: hyatt
+    ownerLabel: Hyatt
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management, collection, soft-brand]
+    sourceUrl: https://www.hyatt.com/development/ourbrands
+    aliases:
+      - value: Park Hyatt
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Grand Hyatt
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Hyatt Regency
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Hyatt Place
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Hyatt House
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Andaz
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Thompson
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [hyatt.com]
+  - entryId: wyndham
+    ownerLabel: Wyndham Hotels and Resorts
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management]
+    sourceUrl: https://corporate.wyndhamhotels.com/our-brands/
+    aliases:
+      - value: Wyndham
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Ramada
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Days Inn
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Travelodge
+        strategy: exact-token-sequence-name
+        evidence: ambiguous
+    websiteHosts: [wyndhamhotels.com]
+  - entryId: choice
+    ownerLabel: Choice Hotels International
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management]
+    sourceUrl: https://www.choicehotels.com/choice-brands
+    aliases:
+      - value: Comfort Inn
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Clarion
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Quality Inn
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Econo Lodge
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Radisson
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [choicehotels.com]
+  - entryId: radisson-hotel-group
+    ownerLabel: Radisson Hotel Group
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management, collection]
+    sourceUrl: https://www.radissonhotels.com/en-us/corporate/about-us/our-brands
+    aliases:
+      - value: Radisson Blu
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Park Plaza
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Park Inn
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [radissonhotels.com]
+  - entryId: bwh
+    ownerLabel: BWH Hotels
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management, collection, soft-brand]
+    sourceUrl: https://www.bestwestern.com/en_US/about.html
+    aliases:
+      - value: Best Western
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: SureStay
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: WorldHotels
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [bestwestern.com]
+  - entryId: minor
+    ownerLabel: Minor Hotels
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management, collection, soft-brand]
+    sourceUrl: https://www.minorhotels.com/en/brands
+    aliases:
+      - value: Anantara
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Avani
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: NH Collection
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: nhow
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Tivoli
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [minorhotels.com]
+  - entryId: premier-inn
+    ownerLabel: Whitbread Premier Inn
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management]
+    sourceUrl: https://www.premierinn.com/
+    aliases:
+      - value: Premier Inn
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [premierinn.com]
+  - entryId: travelodge-uk
+    ownerLabel: Travelodge UK
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management]
+    sourceUrl: https://www.travelodge.co.uk/
+    aliases:
+      - value: Travelodge UK
+        strategy: exact-normalized-full-name
+        evidence: confirmed
+    websiteHosts: [travelodge.co.uk]
+  - entryId: leonardo
+    ownerLabel: Leonardo Hotels
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management, collection, soft-brand]
+    sourceUrl: https://www.leonardohotels.co.uk/united-kingdom
+    aliases:
+      - value: Leonardo Hotel
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Leonardo Royal Hotel
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: NYX Hotel
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [leonardohotels.co.uk]
+  - entryId: easyhotel
+    ownerLabel: easyHotel
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management]
+    sourceUrl: https://www.easyhotel.com/
+    aliases:
+      - value: easyHotel
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [easyhotel.com]
+  - entryId: dalata
+    ownerLabel: Dalata Hotel Group
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management]
+    sourceUrl: https://www.claytonhotels.com/
+    aliases:
+      - value: Clayton Hotel
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Maldron Hotel
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [claytonhotels.com, maldronhotels.com]
+  - entryId: village-hotels
+    ownerLabel: Village Hotels
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management]
+    sourceUrl: https://www.village-hotels.co.uk/
+    aliases:
+      - value: Village Hotel
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [village-hotels.co.uk]
+  - entryId: macdonald
+    ownerLabel: Macdonald Hotels
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management]
+    sourceUrl: https://www.macdonaldhotels.co.uk/
+    aliases:
+      - value: Macdonald Hotel
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [macdonaldhotels.co.uk]
+  - entryId: britannia
+    ownerLabel: Britannia Hotels
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management]
+    sourceUrl: https://www.britanniahotels.com/
+    aliases:
+      - value: Britannia Hotel
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [britanniahotels.com]
+  - entryId: malmaison
+    ownerLabel: Malmaison and Hotel du Vin
+    enabled: true
+    effectiveRevision: 2026-09-02-r1
+    scopes: [franchise, management]
+    sourceUrl: https://www.malmaison.com/
+    aliases:
+      - value: Malmaison
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+      - value: Hotel du Vin
+        strategy: exact-token-sequence-name
+        evidence: confirmed
+    websiteHosts: [malmaison.com, hotelduvin.com]

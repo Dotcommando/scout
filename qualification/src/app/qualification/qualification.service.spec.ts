@@ -7,6 +7,9 @@ import {
   QUALIFY_LEAD_OUTCOME,
 } from '../../ports/inbound/qualify-lead.use-case.js';
 import {
+  IKnownAffiliationPolicyPort,
+} from '../../ports/outbound/known-affiliation-policy.port.js';
+import {
   IQualificationDecisionRecord,
   IQualificationDecisionRepositoryPort,
 } from '../../ports/outbound/qualification-decision-repository.port.js';
@@ -85,6 +88,7 @@ function createFixture(): IFixture {
   const decisionRepository = new FakeDecisionRepository();
   const executionRepository = new FakeExecutionRepository();
   const inboxRepository = new FakeInboxRepository();
+  const knownAffiliationPolicy = new FakeKnownAffiliationPolicy();
   const outputRepository = new FakeQualifiedLeadOutputRepository();
 
   return {
@@ -96,6 +100,7 @@ function createFixture(): IFixture {
       decisionRepository,
       executionRepository,
       inboxRepository,
+      knownAffiliationPolicy,
       configuration,
       outputRepository,
     ),
@@ -146,6 +151,12 @@ class FakeInboxRepository implements IQualificationInboxRepositoryPort {
     if (!this.records.some((record) => record.eventId === input.eventId)) {
       this.records.push(input);
     }
+  }
+}
+
+class FakeKnownAffiliationPolicy implements IKnownAffiliationPolicyPort {
+  public findMatch() {
+    return null;
   }
 }
 
