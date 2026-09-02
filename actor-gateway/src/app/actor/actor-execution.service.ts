@@ -1,0 +1,88 @@
+import {
+  IActorGatewayRequestStatus,
+  IActorGatewayResolveRequest,
+} from '@scout/contracts';
+
+import { getActorDefinition } from '../../adapters/inbound/configuration/actor-definition-registry.js';
+import {
+  ACTOR_PROVIDER_RUN_STATUS,
+  IActorProviderPort,
+} from '../../ports/outbound/actor-provider.port.js';
+import { IActorRequestRepositoryPort } from '../../ports/outbound/actor-request-repository.port.js';
+
+const DATASET_PAGE_SIZE = 100;
+
+export class ActorExecutionService {
+  public constructor(
+    private readonly actorProvider: IActorProviderPort,
+    private readonly actorRequestRepository: IActorRequestRepositoryPort,
+  ) {}
+
+  public async execute(
+    status: IActorGatewayRequestStatus,
+    input: IActorGatewayResolveRequest,
+  ): Promise<IActorGatewayRequestStatus> {
+    const definition = getActorDefinition(
+      input.actorDefinitionId,
+      input.actorRevision,
+    );
+    const providerRun = await this.actorProvider.startRun(
+      definition.actorId,
+      readInputRecord(input.canonicalInput),
+    );
+
+    if (providerRun.status !== ACTOR_PROVIDER_RUN_STATUS.SUCCEEDED) {
+      return status;
+    }
+    if (providerRun.datasetId === undefined) {
+      throw new Error('successful actor provider run has no dataset reference');
+    }
+
+    const records = await this.readAllRecords(providerRun.datasetId);
+    const archiveId = crypto.randomUUID();
+
+    await this.actorRequestRepository.saveArchive({
+      actorDefinitionId: input.actorDefinitionId,
+      actorRevision: input.actorRevision,
+      archiveId,
+      content: new TextEncoder().encode(JSON.stringify(records)),
+      contentType: 'application/json',
+      recordBoundaryIndex: records.map((_record, index) => index),
+      requestId: status.requestId,
+      runId: providerRun.providerRunId,
+      storedAt: new Date().toISOString(),
+    });
+
+    return this.actorRequestRepository.markRequestSucceeded(
+      status.requestId,
+      archiveId,
+      new Date().toISOString(),
+    );
+  }
+
+  private async readAllRecords(datasetId: string): Promise<readonly unknown[]> {
+    const records: unknown[] = [];
+    let offset = 0;
+    let page: readonly unknown[];
+
+    do {
+      page = await this.actorProvider.listDatasetRecords(
+        datasetId,
+        offset,
+        DATASET_PAGE_SIZE,
+      );
+      records.push(...page);
+      offset += page.length;
+    } while (page.length === DATASET_PAGE_SIZE);
+
+    return records;
+  }
+}
+
+function readInputRecord(value: unknown): Record<string, unknown> {
+  if (value === null || Array.isArray(value) || typeof value !== 'object') {
+    throw new Error('actor canonical input must be an object');
+  }
+
+  return Object.fromEntries(new Map<string, unknown>(Object.entries(value)));
+}

@@ -26,6 +26,7 @@ import {
 import { MongoDatabaseClient } from './mongo-database-client.js';
 
 interface IActorRequestDocument {
+  readonly archiveId?: string;
   readonly actorDefinitionId: string;
   readonly actorRevision: string;
   readonly cachePolicyRevision: string;
@@ -195,6 +196,30 @@ export class MongoActorRequestRepository
     );
   }
 
+  public async markRequestSucceeded(
+    requestId: string,
+    archiveId: string,
+    updatedAt: string,
+  ): Promise<IActorGatewayRequestStatus> {
+    const result = await this.requestCollection.findOneAndUpdate(
+      { requestId },
+      {
+        $set: {
+          archiveId,
+          status: ACTOR_REQUEST_STATUS.SUCCEEDED,
+          updatedAt: new Date(updatedAt),
+        },
+      },
+      { returnDocument: 'after' },
+    );
+
+    if (result === null) {
+      throw new Error(`actor request was not found: ${requestId}`);
+    }
+
+    return toRequestStatus(result);
+  }
+
   public async saveArchive(
     archive: IActorArchiveRecord,
   ): Promise<IActorGatewayArchiveManifest> {
@@ -326,6 +351,7 @@ function toRequestStatus(
   return {
     actorDefinitionId: request.actorDefinitionId,
     actorRevision: request.actorRevision,
+    ...(request.archiveId === undefined ? {} : { archiveId: request.archiveId }),
     correlationId: request.correlationId,
     createdAt: request.createdAt.toISOString(),
     requestId: request.requestId,

@@ -12,6 +12,7 @@ import {
   IResolveActorRequestUseCase,
 } from '../../ports/inbound/actor-request.use-case.js';
 import { IActorRequestRepositoryPort } from '../../ports/outbound/actor-request-repository.port.js';
+import { ActorExecutionService } from './actor-execution.service.js';
 
 export class ActorGatewayService implements
   IGetActorRequestStatusUseCase,
@@ -20,6 +21,7 @@ export class ActorGatewayService implements
   IResolveActorRequestUseCase {
   public constructor(
     private readonly actorRequestRepository: IActorRequestRepositoryPort,
+    private readonly actorExecutionService?: ActorExecutionService,
   ) {}
 
   public async getArchiveContent(
@@ -54,7 +56,10 @@ export class ActorGatewayService implements
       timestamp,
       reusableUntil,
     );
+    const status = await this.actorRequestRepository.findOrCreateRequest(request);
 
-    return this.actorRequestRepository.findOrCreateRequest(request);
+    return this.actorExecutionService === undefined
+      ? status
+      : this.actorExecutionService.execute(status, input);
   }
 }

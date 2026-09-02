@@ -404,7 +404,7 @@ inside that adapter.
 
 ## Step 4 — Execute and archive a successful Apify run through the gateway
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -442,6 +442,16 @@ their existing runtime paths.
 - One successful provider execution is recoverable as a complete immutable
   archive through the generic gateway contract.
 - The success path is proven without changing Discovery or Qualification.
+
+### Done
+
+- Added the gateway execution service, which resolves the configured actor,
+  starts a provider run, pages all available dataset records, persists the
+  complete JSON dataset as an immutable archive, and marks the request
+  `SUCCEEDED` only after archival completes.
+- Added a fixture-provider application test proving the resulting status has
+  an archive reference. Actor Gateway lint, typecheck, tests, and build pass;
+  Discovery and Qualification runtime traffic is unchanged.
 
 ## Step 5 — Add Apify failure handling and restart recovery
 

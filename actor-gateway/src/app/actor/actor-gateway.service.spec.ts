@@ -6,10 +6,12 @@ import {
 } from '@scout/contracts';
 
 import { ICanonicalActorRequest } from '../../domain/actor/actor-request.js';
+import { ACTOR_PROVIDER_RUN_STATUS } from '../../ports/outbound/actor-provider.port.js';
 import {
   IActorRequestRepositoryPort,
   IObservedActorField,
 } from '../../ports/outbound/actor-request-repository.port.js';
+import { ActorExecutionService } from './actor-execution.service.js';
 import { ActorGatewayService } from './actor-gateway.service.js';
 
 class FakeActorRequestRepository implements IActorRequestRepositoryPort {
@@ -64,7 +66,40 @@ class FakeActorRequestRepository implements IActorRequestRepositoryPort {
   }
 
   public async saveArchive(): Promise<IActorGatewayArchiveManifest> {
-    throw new Error('not implemented');
+    return {
+      archiveId: 'archive-1',
+      byteLength: 1,
+      contentEncoding: 'gzip',
+      contentType: 'application/json',
+      requestId: 'request-1',
+      runId: 'run-1',
+      schemaVersion: ACTOR_GATEWAY_SCHEMA_VERSION.V1,
+      sha256: 'checksum',
+      storedAt: '2026-09-02T00:00:00.000Z',
+    };
+  }
+
+  public async markRequestSucceeded(
+    requestId: string,
+    archiveId: string,
+    updatedAt: string,
+  ): Promise<IActorGatewayRequestStatus> {
+    const existing = this.statuses.get(requestId);
+
+    if (existing === undefined) {
+      throw new Error('request was not found');
+    }
+
+    const succeeded: IActorGatewayRequestStatus = {
+      ...existing,
+      archiveId,
+      status: ACTOR_REQUEST_STATUS.SUCCEEDED,
+      updatedAt,
+    };
+
+    this.statuses.set(requestId, succeeded);
+
+    return succeeded;
   }
 }
 
@@ -128,5 +163,32 @@ describe('ActorGatewayService', () => {
     });
 
     expect(second.requestId).not.toBe(first.requestId);
+  });
+
+  it('archives a completed fixture provider run', async () => {
+    const repository = new FakeActorRequestRepository();
+    const executor = new ActorExecutionService({
+      async getRun() { throw new Error('not used'); },
+      async listDatasetRecords() { return [{ type: 'property' }]; },
+      async startRun() {
+        return {
+          datasetId: 'dataset-1',
+          providerRunId: 'run-1',
+          status: ACTOR_PROVIDER_RUN_STATUS.SUCCEEDED,
+        };
+      },
+    }, repository);
+    const result = await new ActorGatewayService(repository, executor).resolveRequest({
+      actorDefinitionId: 'google-maps-search',
+actorRevision: 'latest',
+      cachePolicyRevision: 'cache-1',
+canonicalInput: { query: 'lodging' },
+      correlationId: 'correlation-1',
+requestedAt: '2026-09-02T00:00:00.000Z',
+      schemaVersion: ACTOR_GATEWAY_SCHEMA_VERSION.V1,
+    });
+
+    expect(result.status).toBe(ACTOR_REQUEST_STATUS.SUCCEEDED);
+    expect(result.archiveId).toBeDefined();
   });
 });

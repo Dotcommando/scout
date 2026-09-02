@@ -45,5 +45,10 @@ export interface IActorRequestRepositoryPort {
   findOrCreateRequest(
     request: ICanonicalActorRequest,
   ): Promise<IActorGatewayRequestStatus>;
+  markRequestSucceeded(
+    requestId: string,
+    archiveId: string,
+    updatedAt: string,
+  ): Promise<IActorGatewayRequestStatus>;
   saveArchive(archive: IActorArchiveRecord): Promise<IActorGatewayArchiveManifest>;
 }
