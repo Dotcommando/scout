@@ -4,7 +4,7 @@ import {
   IActorGatewayResolveRequest,
 } from '@scout/contracts';
 
-import { createPendingActorRequest } from '../../domain/actor/actor-request.js';
+import { createCanonicalActorRequest } from '../../domain/actor/actor-request.js';
 import {
   IGetActorRequestStatusUseCase,
   IGetArchiveContentUseCase,
@@ -43,15 +43,18 @@ export class ActorGatewayService implements
   public async resolveRequest(
     input: IActorGatewayResolveRequest,
   ): Promise<IActorGatewayRequestStatus> {
-    const timestamp = new Date().toISOString();
-    const status = createPendingActorRequest(
+    const now = new Date();
+    const timestamp = now.toISOString();
+    const reusableUntil = new Date(
+      now.getTime() + 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const request = createCanonicalActorRequest(
       crypto.randomUUID(),
       input,
       timestamp,
+      reusableUntil,
     );
 
-    await this.actorRequestRepository.saveRequestStatus(status);
-
-    return status;
+    return this.actorRequestRepository.findOrCreateRequest(request);
   }
 }

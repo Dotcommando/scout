@@ -292,7 +292,7 @@ adapters; no unverified package contract or dependency is introduced.
 
 ## Step 2 — Persist exact-request reuse, complete archives, and field catalogue
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -332,6 +332,21 @@ survive a restart.
 - Full raw responses can be retrieved with an integrity check.
 - An unused observed field can be located from the catalogue and traced to a
   raw archive record.
+
+### Done
+
+- Replaced the process-local request store with MongoDB collections protected
+  by unique reusable-request and archive indexes. Canonical JSON input now
+  produces a deterministic SHA-256 key that changes with any relevant input,
+  actor revision, or cache-policy revision.
+- Added immutable gzip-compressed GridFS archive storage with a persisted
+  checksum, manifest, and integrity verification on retrieval. Generic field
+  catalogue records are derived from every archived JSON record and retain
+  actor revision, JSON Pointer, record kind, coverage, and archive provenance.
+- Added unit tests for canonicalization and reuse plus MongoDB integration
+  coverage for concurrent exact requests, archive checksum retrieval, and
+  unused-field discovery. Actor Gateway lint, strict typecheck, tests, and
+  production build all pass.
 
 ## Step 3 — Add an isolated, typed Apify provider adapter
 
