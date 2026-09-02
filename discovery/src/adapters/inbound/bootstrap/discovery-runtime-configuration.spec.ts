@@ -8,6 +8,7 @@ describe('createDiscoveryRuntimeConfiguration', () => {
     const configuration = createDiscoveryRuntimeConfiguration(
       {
         APIFY_API_TOKEN: 'secret',
+        DISCOVERY_LIVE_ARTIFACT_DIRECTORY: 'artifacts/discovery-live-executions',
         DISCOVERY_MONGODB_URI: 'mongodb://localhost:27017/scout_discovery',
         DISCOVERY_PORT: '3001',
         DISCOVERY_RABBITMQ_CONNECTION_TIMEOUT_MS: '3000',
@@ -48,6 +49,7 @@ describe('createDiscoveryRuntimeConfiguration', () => {
       createDiscoveryRuntimeConfiguration(
         {
           APIFY_API_TOKEN: 'secret',
+          DISCOVERY_LIVE_ARTIFACT_DIRECTORY: 'artifacts/discovery-live-executions',
           DISCOVERY_MONGODB_URI: 'mongodb://localhost:27017/scout_discovery',
           DISCOVERY_PORT: '3001',
           DISCOVERY_RABBITMQ_CONNECTION_TIMEOUT_MS: '3000',

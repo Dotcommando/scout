@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { config as loadEnvironmentFile } from 'dotenv';
 
 const DISCOVERY_ENVIRONMENT_FILE_NAME = '.env';
+const DISCOVERY_LIVE_ARTIFACT_DIRECTORY_KEY = 'DISCOVERY_LIVE_ARTIFACT_DIRECTORY';
 const DISCOVERY_PORT_KEY = 'DISCOVERY_PORT';
 const DISCOVERY_MONGODB_URI_KEY = 'DISCOVERY_MONGODB_URI';
 const DISCOVERY_RABBITMQ_CONNECTION_TIMEOUT_MS_KEY =
@@ -25,6 +26,7 @@ const MAXIMUM_RABBITMQ_RETRY_MAX_ATTEMPTS = 10;
 
 export interface IDiscoveryRuntimeConfiguration {
   readonly apifyApiToken: string;
+  readonly liveArtifactDirectory: string;
   readonly mongodbUri: string;
   readonly port: number;
   readonly rabbitmqConnectionTimeoutMs: number;
@@ -51,6 +53,7 @@ export class RuntimeConfigurationValidationError extends Error {
 export class DiscoveryRuntimeConfiguration
   implements IDiscoveryRuntimeConfiguration {
   public readonly apifyApiToken: string;
+  public readonly liveArtifactDirectory: string;
   public readonly mongodbUri: string;
   public readonly port: number;
   public readonly rabbitmqConnectionTimeoutMs: number;
@@ -63,6 +66,7 @@ export class DiscoveryRuntimeConfiguration
     const configuration = loadDiscoveryRuntimeConfiguration();
 
     this.apifyApiToken = configuration.apifyApiToken;
+    this.liveArtifactDirectory = configuration.liveArtifactDirectory;
     this.mongodbUri = configuration.mongodbUri;
     this.port = configuration.port;
     this.rabbitmqConnectionTimeoutMs = configuration.rabbitmqConnectionTimeoutMs;
@@ -111,6 +115,11 @@ export function createDiscoveryRuntimeConfiguration(
     configurationFilePath,
     APIFY_API_TOKEN_KEY,
   );
+  const liveArtifactDirectory = readRequiredValue(
+    environment[DISCOVERY_LIVE_ARTIFACT_DIRECTORY_KEY],
+    configurationFilePath,
+    DISCOVERY_LIVE_ARTIFACT_DIRECTORY_KEY,
+  );
   const rabbitmqUri = parseRabbitMqUri(
     environment[DISCOVERY_RABBITMQ_URI_KEY],
     configurationFilePath,
@@ -119,6 +128,7 @@ export function createDiscoveryRuntimeConfiguration(
 
   return {
     apifyApiToken,
+    liveArtifactDirectory,
     mongodbUri,
     port,
     rabbitmqConnectionTimeoutMs: parseBoundedInteger(

@@ -10,6 +10,7 @@ export enum DISCOVERY_SCOPE_STATUS {
   DONE = 'done',
   FAILED = 'failed',
   IMPORTING = 'importing',
+  PAUSED = 'paused',
   PENDING = 'pending',
   RUNNING = 'running',
 }
@@ -202,6 +203,17 @@ export class DiscoveryScopeProgress {
       this.scopeId,
       this.status,
       updatedAt,
+    );
+  }
+
+  public pause(updatedAt: Date): DiscoveryScopeProgress {
+    this.requireStatus(DISCOVERY_SCOPE_STATUS.IMPORTING);
+
+    return this.withState(
+      DISCOVERY_SCOPE_STATUS.PAUSED,
+      updatedAt,
+      undefined,
+      undefined,
     );
   }
 

@@ -9,6 +9,7 @@
 
 # Logs
 logs
+artifacts/
 **/logs/
 *.log
 npm-debug.log*

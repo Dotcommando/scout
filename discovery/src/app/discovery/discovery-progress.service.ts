@@ -26,6 +26,7 @@ import {
   ILeadRepositoryPort,
   LEAD_UPSERT_OUTCOME,
 } from '../../ports/outbound/lead-repository.port.js';
+import { ILiveDiscoveryYieldObserverPort } from '../../ports/outbound/live-discovery-yield-observer.port.js';
 import {
   IProviderQuotaRepositoryPort,
 } from '../../ports/outbound/provider-quota-repository.port.js';
@@ -46,6 +47,7 @@ export enum DISCOVERY_WORK_OUTCOME {
   PROVIDER_RUN_PENDING = 'provider-run-pending',
   PROVIDER_RUN_STARTED = 'provider-run-started',
   TERMINAL_PROVIDER_FAILURE = 'terminal-provider-failure',
+  YIELD_PAUSED = 'yield-paused',
 }
 
 export interface IAdvanceDiscoveryWorkInput {
@@ -93,6 +95,7 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
     private readonly leadRepository: ILeadRepositoryPort,
     private readonly scopeRepository: IDiscoveryStateRepositoryPort,
     private readonly quotaRepository: IProviderQuotaRepositoryPort,
+    private readonly liveYieldObserver?: ILiveDiscoveryYieldObserverPort,
   ) {}
 
   public async advanceDiscoveryWork(
@@ -234,9 +237,12 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
       limit: PROVIDER_RESULT_PAGE_SIZE,
       offset: importProgress.nextItemOffset,
     });
+    let batchInsertedLeadCount = 0;
 
     for (const candidate of page.items) {
-      await this.saveCandidateLead(scope, candidate, currentTime, correlationId);
+      if (await this.saveCandidateLead(scope, candidate, currentTime, correlationId)) {
+        batchInsertedLeadCount += 1;
+      }
     }
 
     const nextItemOffset = importProgress.nextItemOffset + page.items.length;
@@ -250,6 +256,22 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
       )
       .releaseClaim(currentTime);
 
+    if (this.liveYieldObserver !== undefined) {
+      const shouldPause = await this.liveYieldObserver.recordImportedBatch({
+        batchInsertedLeadCount,
+        batchProviderItemCount: page.items.length,
+        campaignId: scope.campaign.campaignId,
+        occurredAt: currentTime,
+        providerRunId: scope.providerRun?.providerRunId ?? 'unknown',
+        scopeId: scope.scopeId,
+      });
+
+      if (shouldPause) {
+        await this.scopeRepository.saveScopeProgress(updatedScope.pause(currentTime));
+
+        return { outcome: DISCOVERY_WORK_OUTCOME.YIELD_PAUSED, scopeId: scope.scopeId };
+      }
+    }
     if (page.nextOffset === null) {
       await this.scopeRepository.saveScopeProgress(updatedScope.complete(currentTime));
 
@@ -390,7 +412,7 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
     candidate: IProviderLeadCandidate,
     currentTime: Date,
     correlationId: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const sourceIdentity = new LeadSourceIdentity(
       candidate.externalId,
       DISCOVERY_SOURCE_KIND.GOOGLE_MAPS,
@@ -419,7 +441,7 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
     const result = await this.leadRepository.upsertLead(lead);
 
     if (result.outcome === LEAD_UPSERT_OUTCOME.EXISTING) {
-      return;
+      return false;
     }
 
     const outputId = createStableIdentifier(
@@ -442,6 +464,8 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
       }),
       status: DISCOVERY_OUTPUT_STATUS.PENDING,
     });
+
+    return true;
   }
 
   private async startProviderRun(

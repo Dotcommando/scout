@@ -33,6 +33,7 @@ services:
     environment:
       APIFY_API_TOKEN: ${APIFY_API_TOKEN}
       DISCOVERY_MONGODB_URI: mongodb://mongodb:27017/scout_discovery
+      DISCOVERY_LIVE_ARTIFACT_DIRECTORY: /workspace/artifacts/discovery-live-executions
       DISCOVERY_PORT: '3001'
       DISCOVERY_RABBITMQ_CONNECTION_TIMEOUT_MS: ${DISCOVERY_RABBITMQ_CONNECTION_TIMEOUT_MS}
       DISCOVERY_RABBITMQ_PREFETCH: ${DISCOVERY_RABBITMQ_PREFETCH}
@@ -42,6 +43,7 @@ services:
     ports:
       - '${DISCOVERY_PORT}:3001'
     volumes:
+      - ./artifacts/discovery-live-executions:/workspace/artifacts/discovery-live-executions
       - ./config/discovery:/workspace/config/discovery:ro
 
   qualification:

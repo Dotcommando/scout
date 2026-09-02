@@ -586,7 +586,7 @@ ordinary publisher and consumer then handle them exactly like new outputs.
 
 ## Step 7 — Add controlled live Discovery budget and unique-yield stopping
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -689,6 +689,27 @@ execution.
   Discovery container; an artifact-write failure pauses paid work.
 - Previously downloaded leads remain available for delivery without repeated
   provider collection.
+
+### Done
+
+- Removed the Discovery collection worker from ordinary service startup; normal
+  scheduler activity no longer calls Apify. Added the separate confirmed
+  `npm run live:execute` command and the validated non-default
+  `config/discovery/live-execution.yaml` policy.
+- Added persistent live execution and plan-usage records. Provider starts are
+  capped at 20 items for preflight, 100 per approved Actor run, 100 normal
+  collection items per calendar day, and 600 items/seven runs for the plan.
+- Added cumulative imported-item/unique-insertion tracking, structured
+  `discovery-unique-yield` logs, threshold pause at 200 items and 0.5%, and a
+  paused-scope state that cannot be claimed by ordinary recovery work.
+- Added atomic host-mounted JSON batch artifacts under
+  `artifacts/discovery-live-executions`, excluded them from Git, and paused a
+  live execution on artifact-write failure. Added Compose mount, validated
+  runtime configuration, and operator documentation in
+  `docs/LIVE_DISCOVERY_EXECUTION.md`.
+- Ran Discovery lint, strict typecheck, ordinary and integration tests, build;
+  ran all Qualification quality gates; validated and rebuilt local Compose.
+  No live Apify call was made.
 
 ## Step 8 — Verify recovery, operations, and the complete local delivery path
 

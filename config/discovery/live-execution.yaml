@@ -1,0 +1,8 @@
+version: 1
+planId: rabbitmq-and-qualification
+maximumProviderItemsPerRun: 100
+preflightMaximumProviderItems: 20
+maximumPlanProviderItems: 600
+maximumPlanProviderRuns: 7
+minimumYieldEvaluationProviderItems: 200
+minimumUniqueLeadRate: 0.005
