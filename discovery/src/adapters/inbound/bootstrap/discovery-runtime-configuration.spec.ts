@@ -7,7 +7,6 @@ describe('createDiscoveryRuntimeConfiguration', () => {
   it('maps valid Discovery environment values', () => {
     const configuration = createDiscoveryRuntimeConfiguration(
       {
-        APIFY_API_TOKEN: 'secret',
         DISCOVERY_ACTOR_GATEWAY_URL: 'http://localhost:3003',
         DISCOVERY_LIVE_ARTIFACT_DIRECTORY: 'artifacts/discovery-live-executions',
         DISCOVERY_MONGODB_URI: 'mongodb://localhost:27017/scout_discovery',
@@ -49,7 +48,6 @@ describe('createDiscoveryRuntimeConfiguration', () => {
     expect(() =>
       createDiscoveryRuntimeConfiguration(
         {
-          APIFY_API_TOKEN: 'secret',
           DISCOVERY_ACTOR_GATEWAY_URL: 'http://localhost:3003',
           DISCOVERY_LIVE_ARTIFACT_DIRECTORY: 'artifacts/discovery-live-executions',
           DISCOVERY_MONGODB_URI: 'mongodb://localhost:27017/scout_discovery',

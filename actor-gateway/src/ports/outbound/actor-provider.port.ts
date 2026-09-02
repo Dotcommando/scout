@@ -23,3 +23,22 @@ export interface IActorProviderPort {
     input: Record<string, unknown>,
   ): Promise<IActorProviderRun>;
 }
+
+export interface IActorProviderFailureContext {
+  readonly providerCode?: string;
+  readonly providerRunId?: string;
+  readonly retryAfterMilliseconds?: number;
+  readonly statusCode?: number;
+}
+
+export class ActorProviderError extends Error {
+  public constructor(
+    public readonly operation: string,
+    public readonly retryable: boolean,
+    public readonly context: IActorProviderFailureContext,
+    cause: unknown,
+  ) {
+    super(`Actor provider ${operation} failed`, { cause });
+    this.name = 'ActorProviderError';
+  }
+}

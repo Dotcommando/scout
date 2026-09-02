@@ -14,6 +14,8 @@ Invoke-WebRequest http://localhost:3001/health/live
 Invoke-WebRequest http://localhost:3001/health/ready
 Invoke-WebRequest http://localhost:3002/health/live
 Invoke-WebRequest http://localhost:3002/health/ready
+Invoke-WebRequest http://localhost:3003/health/live
+Invoke-WebRequest http://localhost:3003/health/ready
 ```
 
 `live` means the process is running. `ready` additionally verifies MongoDB and
@@ -37,6 +39,7 @@ Inspect queues and service logs locally:
 ```powershell
 docker compose logs --tail 200 discovery
 docker compose logs --tail 200 qualification
+docker compose logs --tail 200 actor-gateway
 docker compose exec rabbitmq rabbitmqctl list_queues name messages consumers
 docker compose exec discovery npm run operations:summary
 docker compose exec qualification npm run operations:summary
@@ -66,3 +69,20 @@ the durable outbox/inbox/execution records and logs. A failed readiness check is
 not a reason to reset databases, delete outputs, purge queues, or re-run a
 provider search. Recovery relies on persisted claims, idempotency keys and
 bounded retry/DLQ routing.
+
+## Actor Gateway archives
+
+Actor Gateway is the only service that receives `APIFY_API_TOKEN`. Discovery
+and Qualification submit versioned exact requests and read resulting archive
+endpoints. A successful request status contains `archiveId`; inspect it with:
+
+```powershell
+Invoke-WebRequest http://localhost:3003/v1/actor-requests/<requestId>
+Invoke-WebRequest http://localhost:3003/v1/actor-requests/archives/<archiveId>
+Invoke-WebRequest http://localhost:3003/v1/actor-requests/archives/<archiveId>/content -OutFile archive.gz
+```
+
+Archive bytes are gzip-compressed JSON records and checksum-verified by
+Gateway before serving. A pending request is never reusable as a success. Do
+not run a paid provider capture without the separately approved budget and
+sanitized-fixture process.

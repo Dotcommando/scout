@@ -29,6 +29,7 @@ services:
       mongodb:
         condition: service_healthy
     environment:
+      APIFY_API_TOKEN: ${APIFY_API_TOKEN}
       ACTOR_GATEWAY_MONGODB_URI: mongodb://mongodb:27017/scout_actor_gateway
       ACTOR_GATEWAY_PORT: '3003'
     ports:
@@ -51,7 +52,6 @@ services:
       actor-gateway:
         condition: service_healthy
     environment:
-      APIFY_API_TOKEN: ${APIFY_API_TOKEN}
       DISCOVERY_ACTOR_GATEWAY_URL: http://actor-gateway:3003
       DISCOVERY_MONGODB_URI: mongodb://mongodb:27017/scout_discovery
       DISCOVERY_LIVE_ARTIFACT_DIRECTORY: /workspace/artifacts/discovery-live-executions

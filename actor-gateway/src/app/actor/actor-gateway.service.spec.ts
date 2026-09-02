@@ -8,6 +8,8 @@ import {
 import { ICanonicalActorRequest } from '../../domain/actor/actor-request.js';
 import { ACTOR_PROVIDER_RUN_STATUS } from '../../ports/outbound/actor-provider.port.js';
 import {
+  ACTOR_EXECUTION_CLAIM_OUTCOME,
+  IActorExecutionClaim,
   IActorRequestRepositoryPort,
   IObservedActorField,
 } from '../../ports/outbound/actor-request-repository.port.js';
@@ -23,6 +25,22 @@ class FakeActorRequestRepository implements IActorRequestRepositoryPort {
 
   public async findArchiveContent(): Promise<Uint8Array | null> {
     return null;
+  }
+
+  public async claimExecution(
+    requestId: string,
+  ): Promise<IActorExecutionClaim> {
+    const status = this.statuses.get(requestId);
+
+    if (status === undefined) {
+      throw new Error('request was not found');
+    }
+
+    return {
+      attempt: 1,
+      outcome: ACTOR_EXECUTION_CLAIM_OUTCOME.CLAIMED,
+      status,
+    };
   }
 
   public async findArchiveManifest(): Promise<IActorGatewayArchiveManifest | null> {
@@ -100,6 +118,35 @@ class FakeActorRequestRepository implements IActorRequestRepositoryPort {
     this.statuses.set(requestId, succeeded);
 
     return succeeded;
+  }
+
+  public async markRequestFailed(
+    requestId: string,
+    updatedAt: string,
+  ): Promise<IActorGatewayRequestStatus> {
+    const existing = this.statuses.get(requestId);
+
+    if (existing === undefined) {
+      throw new Error('request was not found');
+    }
+
+    const failed = { ...existing, status: ACTOR_REQUEST_STATUS.FAILED, updatedAt };
+
+    this.statuses.set(requestId, failed);
+
+    return failed;
+  }
+
+  public async recordProviderRun(
+    requestId: string,
+  ): Promise<IActorGatewayRequestStatus> {
+    const existing = this.statuses.get(requestId);
+
+    if (existing === undefined) {
+      throw new Error('request was not found');
+    }
+
+    return existing;
   }
 }
 

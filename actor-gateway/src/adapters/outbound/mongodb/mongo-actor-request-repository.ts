@@ -19,7 +19,9 @@ import {
 } from '../../../domain/actor/actor-request.js';
 import { buildObservedFieldCatalogue } from '../../../domain/actor/observed-field-catalogue.js';
 import {
+  ACTOR_EXECUTION_CLAIM_OUTCOME,
   IActorArchiveRecord,
+  IActorExecutionClaim,
   IActorRequestRepositoryPort,
   IObservedActorField,
 } from '../../../ports/outbound/actor-request-repository.port.js';
@@ -31,6 +33,7 @@ interface IActorRequestDocument {
   readonly actorRevision: string;
   readonly cachePolicyRevision: string;
   readonly canonicalInput: string;
+  readonly execution?: IActorExecutionDocument;
   readonly correlationId: string;
   readonly createdAt: Date;
   readonly requestId: string;
@@ -38,6 +41,13 @@ interface IActorRequestDocument {
   readonly reuseKey: string;
   readonly status: ACTOR_REQUEST_STATUS;
   readonly updatedAt: Date;
+}
+
+interface IActorExecutionDocument {
+  readonly attempt: number;
+  readonly claimedAt: Date;
+  readonly providerRunId?: string;
+  readonly startInvokedAt?: Date;
 }
 
 interface IActorArchiveDocument {
@@ -107,6 +117,100 @@ export class MongoActorRequestRepository
     }
 
     return content;
+  }
+
+  public async claimExecution(
+    requestId: string,
+    claimedAt: string,
+    staleBefore: string,
+  ): Promise<IActorExecutionClaim> {
+    const claimTime = new Date(claimedAt);
+    const staleTime = new Date(staleBefore);
+    const existing = await this.requestCollection.findOne({ requestId });
+
+    if (existing === null) {
+      throw new Error(`actor request was not found: ${requestId}`);
+    }
+    if (
+      existing.status === ACTOR_REQUEST_STATUS.SUCCEEDED
+      || existing.status === ACTOR_REQUEST_STATUS.FAILED
+    ) {
+      return {
+        attempt: existing.execution?.attempt ?? 0,
+        outcome: ACTOR_EXECUTION_CLAIM_OUTCOME.TERMINAL,
+        status: toRequestStatus(existing),
+      };
+    }
+    if (
+      existing.status === ACTOR_REQUEST_STATUS.RUNNING
+      && existing.execution?.claimedAt !== undefined
+      && existing.execution.claimedAt > staleTime
+    ) {
+      return {
+        attempt: existing.execution.attempt,
+        outcome: ACTOR_EXECUTION_CLAIM_OUTCOME.IN_PROGRESS,
+        status: toRequestStatus(existing),
+      };
+    }
+    if (
+      existing.status === ACTOR_REQUEST_STATUS.RUNNING
+      && existing.execution?.startInvokedAt !== undefined
+      && existing.execution.providerRunId === undefined
+    ) {
+      return {
+        attempt: existing.execution.attempt,
+        outcome: ACTOR_EXECUTION_CLAIM_OUTCOME.UNKNOWN_START_OUTCOME,
+        status: toRequestStatus(existing),
+      };
+    }
+
+    const nextAttempt = (existing.execution?.attempt ?? 0) + 1;
+    const result = await this.requestCollection.findOneAndUpdate(
+      {
+        requestId,
+        status: { $in: [ACTOR_REQUEST_STATUS.PENDING, ACTOR_REQUEST_STATUS.RUNNING] },
+        ...(existing.status === ACTOR_REQUEST_STATUS.RUNNING
+          ? { 'execution.claimedAt': { $lte: staleTime } }
+          : {}),
+      },
+      {
+        $set: {
+          execution: {
+            attempt: nextAttempt,
+            claimedAt: claimTime,
+            ...(existing.execution?.providerRunId === undefined
+              ? { startInvokedAt: claimTime }
+              : { providerRunId: existing.execution.providerRunId }),
+          },
+          status: ACTOR_REQUEST_STATUS.RUNNING,
+          updatedAt: claimTime,
+        },
+      },
+      { returnDocument: 'after' },
+    );
+
+    if (result === null) {
+      const concurrent = await this.findRequestStatus(requestId);
+
+      if (concurrent === null) {
+        throw new Error(`actor request was not found after execution claim: ${requestId}`);
+      }
+
+      return {
+        attempt: existing.execution?.attempt ?? 0,
+        outcome: ACTOR_EXECUTION_CLAIM_OUTCOME.IN_PROGRESS,
+        status: concurrent,
+      };
+    }
+
+    return {
+      attempt: nextAttempt,
+      outcome: ACTOR_EXECUTION_CLAIM_OUTCOME.CLAIMED,
+      ...(result.execution?.providerRunId === undefined
+        ? {}
+        : { providerRunId: result.execution.providerRunId }),
+      status: toRequestStatus(result),
+    };
   }
 
   public async findArchiveManifest(
@@ -220,6 +324,43 @@ export class MongoActorRequestRepository
     return toRequestStatus(result);
   }
 
+  public async markRequestFailed(
+    requestId: string,
+    updatedAt: string,
+  ): Promise<IActorGatewayRequestStatus> {
+    return this.updateRequestStatus(
+      requestId,
+      ACTOR_REQUEST_STATUS.FAILED,
+      updatedAt,
+    );
+  }
+
+  public async recordProviderRun(
+    requestId: string,
+    providerRunId: string,
+    updatedAt: string,
+  ): Promise<IActorGatewayRequestStatus> {
+    const result = await this.requestCollection.findOneAndUpdate(
+      {
+        requestId,
+        status: ACTOR_REQUEST_STATUS.RUNNING,
+      },
+      {
+        $set: {
+          'execution.providerRunId': providerRunId,
+          updatedAt: new Date(updatedAt),
+        },
+      },
+      { returnDocument: 'after' },
+    );
+
+    if (result === null) {
+      throw new Error(`running actor request was not found: ${requestId}`);
+    }
+
+    return toRequestStatus(result);
+  }
+
   public async saveArchive(
     archive: IActorArchiveRecord,
   ): Promise<IActorGatewayArchiveManifest> {
@@ -253,6 +394,29 @@ export class MongoActorRequestRepository
     await this.saveObservedFields(archive);
 
     return toArchiveManifest(document);
+  }
+
+  private async updateRequestStatus(
+    requestId: string,
+    status: ACTOR_REQUEST_STATUS,
+    updatedAt: string,
+  ): Promise<IActorGatewayRequestStatus> {
+    const result = await this.requestCollection.findOneAndUpdate(
+      { requestId },
+      {
+        $set: {
+          status,
+          updatedAt: new Date(updatedAt),
+        },
+      },
+      { returnDocument: 'after' },
+    );
+
+    if (result === null) {
+      throw new Error(`actor request was not found: ${requestId}`);
+    }
+
+    return toRequestStatus(result);
   }
 
   private async saveObservedFields(

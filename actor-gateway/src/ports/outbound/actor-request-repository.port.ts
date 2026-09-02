@@ -17,6 +17,20 @@ export interface IActorArchiveRecord {
   readonly storedAt: string;
 }
 
+export enum ACTOR_EXECUTION_CLAIM_OUTCOME {
+  CLAIMED = 'CLAIMED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  TERMINAL = 'TERMINAL',
+  UNKNOWN_START_OUTCOME = 'UNKNOWN_START_OUTCOME',
+}
+
+export interface IActorExecutionClaim {
+  readonly attempt: number;
+  readonly outcome: ACTOR_EXECUTION_CLAIM_OUTCOME;
+  readonly providerRunId?: string;
+  readonly status: IActorGatewayRequestStatus;
+}
+
 export interface IObservedActorField {
   readonly actorDefinitionId: string;
   readonly actorRevision: string;
@@ -31,6 +45,11 @@ export interface IObservedActorField {
 }
 
 export interface IActorRequestRepositoryPort {
+  claimExecution(
+    requestId: string,
+    claimedAt: string,
+    staleBefore: string,
+  ): Promise<IActorExecutionClaim>;
   findArchiveContent(archiveId: string): Promise<Uint8Array | null>;
   findArchiveManifest(
     archiveId: string,
@@ -48,6 +67,15 @@ export interface IActorRequestRepositoryPort {
   markRequestSucceeded(
     requestId: string,
     archiveId: string,
+    updatedAt: string,
+  ): Promise<IActorGatewayRequestStatus>;
+  markRequestFailed(
+    requestId: string,
+    updatedAt: string,
+  ): Promise<IActorGatewayRequestStatus>;
+  recordProviderRun(
+    requestId: string,
+    providerRunId: string,
     updatedAt: string,
   ): Promise<IActorGatewayRequestStatus>;
   saveArchive(archive: IActorArchiveRecord): Promise<IActorGatewayArchiveManifest>;

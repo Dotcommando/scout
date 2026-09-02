@@ -13,17 +13,18 @@ Discovery -- AMQP discovered-lead event --> Qualification
     |                                         |
     |                                         +--> scout_qualification
     +--> scout_discovery                         qualification decisions
+                                                enrichment snapshots
                                                 qualified lead outputs
 
-Discovery -- direct Apify client --> Google Maps actor
-
-Both services --> MongoDB and RabbitMQ
+Discovery ----> Actor Gateway ----> Apify actors
+Qualification -> Actor Gateway
+Actor Gateway -> scout_actor_gateway (request cache, runs, archives, field catalogue)
 ```
 
-Docker Compose defines four containers: `mongodb`, `rabbitmq`, `discovery`,
-and `qualification`. MongoDB contains one database per service:
-`scout_discovery` and `scout_qualification`. Neither service reads or writes
-the other service's database.
+Docker Compose defines five containers: `mongodb`, `rabbitmq`, `actor-gateway`,
+`discovery`, and `qualification`. MongoDB contains one database per service:
+`scout_actor_gateway`, `scout_discovery`, and `scout_qualification`. No service
+reads or writes another service's database.
 
 ## Discovery
 
@@ -37,14 +38,13 @@ configured with the Google Maps source and the actor
 
 - Discovery campaign configuration: campaign ID, source, actor ID, queries,
   ordered scopes, and provider limits.
-- Runtime configuration: its MongoDB and RabbitMQ connections and the Apify
-  token.
+- Runtime configuration: its MongoDB, RabbitMQ, and Actor Gateway connections.
 - A scheduled worker tick, currently every 60 seconds.
-- Provider-run status and paged result records from the Google Maps actor.
+- Actor Gateway request status and archived Google Maps records.
 
 ### Processing and stored output
 
-- Persists scope progress, provider run references, quota reservations, Leads,
+- Persists scope progress, gateway-request references, quota reservations, Leads,
   and pending publication records in `scout_discovery`.
 - Normalizes a provider record to a generic Lead: stable internal `leadId`,
   `(sourceKind, externalId)`, name, and optional address, phone number, and
@@ -100,6 +100,12 @@ retry settings.
   `qualified_lead_outputs` collection. This is a persistent output for a
   future downstream system; it is not currently published to another broker
   exchange or service.
+- Requests a retained Google Hotels market snapshot through Actor Gateway and
+  persists exactly six explicit metrics when an archived property record has
+  the same stable external identifier as the Lead: Public ADR, Review Volume,
+  Market Price Position, Monetisable Asset Count, Full-Service Hotel Signal,
+  and Market Value Proxy. A missing match or field is stored as `UNAVAILABLE`,
+  never as zero or a commercial decision.
 
 ### RabbitMQ handling
 
@@ -115,28 +121,27 @@ malformed or terminally failed messages are written to
 contain service application or domain code. The currently shared contract is
 the version-1 discovered-lead event consumed by Qualification.
 
-Both services expose:
+All three services expose:
 
 ```text
 GET /health/live   process liveness
 GET /health/ready  MongoDB and RabbitMQ readiness
 ```
 
-Both services use structured logs and propagate `correlationId` through the
-Discovery-to-Qualification event.
+Actor Gateway readiness verifies MongoDB; Discovery and Qualification readiness
+also verify RabbitMQ. Gateway archives complete gzip-compressed raw datasets in
+GridFS, protects exact request reuse with a persistent key, retains a checksum,
+and derives a JSON-Pointer field catalogue. Gateway request, archive manifest,
+and archive-content endpoints are versioned under `/v1/actor-requests`.
 
-## Not Implemented Yet
+The services use structured logs and propagate `correlationId` through the
+Discovery-to-Qualification event and Actor Gateway requests.
 
-- Actor Gateway is not yet an application, Docker Compose service, or runtime
-  dependency.
-- Discovery still calls Apify directly and receives `APIFY_API_TOKEN`.
-- There is no shared actor-request cache, raw actor-response archive, or
-  observed-field catalogue.
-- Qualification does not yet call the Google Hotels actor and does not yet
-  persist the six planned enrichment metrics.
+## Deferred Operational Work
 
-The implementation plan for those changes is
-`plans/QUALIFICATION_ENRICHMENT_AND_RESPONSE_ARCHIVE.md`.
+- Live Google Hotels contract capture remains opt-in. No live provider call is
+  performed by normal tests or Compose startup; fixtures and configuration must
+  be reviewed before a paid capture is approved.
 
 ## Maintenance Rule
 

@@ -455,7 +455,7 @@ their existing runtime paths.
 
 ## Step 5 — Add Apify failure handling and restart recovery
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -495,9 +495,21 @@ than creating an accidental duplicate actor run.
 - Failure diagnostics are sufficient to determine the actor, request, run,
   attempt, and retryability from Docker logs.
 
+### Done
+
+- Added durable execution claims, attempt tracking, persisted provider-run
+  references, and an explicit failed terminal state. Stale executions with a
+  known provider run re-observe it; an ambiguous start is failed rather than
+  risking a duplicate paid run.
+- Apify adapter failures are normalized into typed retryable/non-retryable
+  provider errors with safe status and code context. Pending and failed request
+  states cannot become successful cache results.
+- Actor Gateway lint, strict typecheck, tests, production build, Compose
+  startup, and post-restart readiness checks passed.
+
 ## Step 6 — Migrate Discovery actor use to Actor Gateway
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -533,9 +545,19 @@ actor response is first archived and reusable through Actor Gateway.
 - Discovery has no direct actor-provider request path or provider credential.
 - Existing lead identity and idempotent publishing guarantees remain intact.
 
+### Done
+
+- Replaced all Discovery runtime and live-command direct Apify adapters with a
+  Gateway-backed Google Maps adapter. It resolves canonical requests, treats
+  Gateway pending/outage states as retryable provider outcomes, and normalizes
+  only archived records locally.
+- Removed the Discovery Apify dependency and credential parsing; Compose now
+  injects `APIFY_API_TOKEN` only into Actor Gateway. A fixture adapter test and
+  all Discovery quality gates pass.
+
 ## Step 7 — Validate Google Hotels retrieval and local normalization
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -574,9 +596,19 @@ crossing the adapter boundary.
 - Every normalized value is traceable to a gateway archive and JSON Pointer.
 - No identity heuristic or direct provider call is introduced.
 
+### Done
+
+- Added validated, configuration-owned Google Hotels request settings and a
+  local retained-archive parser. It only accepts an exact stable external-ID
+  match, making missing matches and missing metric inputs explicit rather than
+  applying an identity heuristic.
+- Added fixture-driven metric projection coverage for populated and missing
+  inputs. The opt-in live capture was not run because this execution has no
+  separately approved paid-call budget.
+
 ## Step 8 — Project and persist the six auditable metrics
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -619,9 +651,18 @@ context without re-calling an actor.
   `NOT_APPLICABLE` without inventing a commercial decision.
 - Raw actor fields remain recoverable for future projections.
 
+### Done
+
+- Added the persisted qualification enrichment snapshot, unique campaign/lead/
+  profile key, inbound read port, and configuration-owned amenity catalogue.
+  Projection produces exactly the six listed metrics with availability,
+  archive record evidence, JSON Pointer, extractor revision, and stay context.
+- Qualification domain and application tests plus lint, strict typecheck, and
+  production build pass.
+
 ## Step 9 — Verify normal operations, recovery, and clean state
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -666,6 +707,17 @@ test fixtures.
   proven end to end.
 - `ACTUAL_STATE.md` reflects the verified post-plan topology and contracts.
 - Test data has been removed and the removal has been verified.
+
+### Done
+
+- Built and started the normal five-service Compose topology, verified every
+  readiness endpoint, then restarted Gateway, Discovery, and Qualification and
+  verified readiness again. Structured startup logs confirm the expected
+  dependencies and Gateway routes.
+- Updated `ACTUAL_STATE.md` and the operations runbook. Gateway and
+  Qualification databases contain no test documents from this verification;
+  the pre-existing Discovery records were preserved because they were not
+  identified as test data.
 
 # Plan Completion Criteria
 

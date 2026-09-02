@@ -3,10 +3,10 @@ import { resolve } from 'node:path';
 
 import { parse } from 'yaml';
 
-import { ApifyGoogleMapsProviderAdapter } from '../../outbound/apify/apify-google-maps-provider-adapter.js';
+import { ActorGatewayClient } from '../../outbound/actor-gateway/actor-gateway-client.js';
+import { ActorGatewayGoogleMapsProviderAdapter } from '../../outbound/actor-gateway/actor-gateway-google-maps-provider-adapter.js';
 import { DiscoveryRuntimeConfiguration } from '../bootstrap/discovery-runtime-configuration.js';
 import { writeDiscoveryLog } from '../bootstrap/discovery-structured-logger.js';
-import { DiscoveryCampaignConfiguration } from '../configuration/discovery-campaign-configuration.js';
 
 const CONTRACT_CAPTURE_MAXIMUM_ITEM_COUNT = 10;
 const LIVE_E2E_MAXIMUM_ITEM_COUNT = 20;
@@ -57,10 +57,7 @@ async function main(): Promise<void> {
     throw new Error('plan live-run allowance is exhausted');
   }
 
-  const adapter = new ApifyGoogleMapsProviderAdapter(
-    new DiscoveryRuntimeConfiguration(),
-    new DiscoveryCampaignConfiguration(),
-  );
+  const adapter = createProviderAdapter();
   const run = await adapter.startProviderRun({
     maximumItemCount,
     scopeId: configuration.scopeId,
@@ -88,10 +85,7 @@ async function inspectProviderRun(providerRunId: string | undefined): Promise<vo
     throw new Error('inspect requires a provider run ID');
   }
 
-  const adapter = new ApifyGoogleMapsProviderAdapter(
-    new DiscoveryRuntimeConfiguration(),
-    new DiscoveryCampaignConfiguration(),
-  );
+  const adapter = createProviderAdapter();
   const run = await adapter.getRunStatus({ providerRunId });
 
   if (run.datasetReference === undefined) {
@@ -133,6 +127,14 @@ async function inspectProviderRun(providerRunId: string | undefined): Promise<vo
     retryable: false,
     service: 'discovery',
   });
+}
+
+function createProviderAdapter(): ActorGatewayGoogleMapsProviderAdapter {
+  const runtimeConfiguration = new DiscoveryRuntimeConfiguration();
+
+  return new ActorGatewayGoogleMapsProviderAdapter(
+    new ActorGatewayClient(runtimeConfiguration),
+  );
 }
 
 function getPurposeMaximumItemCount(purpose: LIVE_PROVIDER_PURPOSE): number {

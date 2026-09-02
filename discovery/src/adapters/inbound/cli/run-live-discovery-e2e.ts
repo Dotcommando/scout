@@ -14,7 +14,8 @@ import {
   DISCOVERY_SCOPE_STATUS,
 } from '../../../domain/discovery/discovery-model.js';
 import { IDiscoveryCampaignConfigurationPort } from '../../../ports/outbound/discovery-campaign-configuration.port.js';
-import { ApifyGoogleMapsProviderAdapter } from '../../outbound/apify/apify-google-maps-provider-adapter.js';
+import { ActorGatewayClient } from '../../outbound/actor-gateway/actor-gateway-client.js';
+import { ActorGatewayGoogleMapsProviderAdapter } from '../../outbound/actor-gateway/actor-gateway-google-maps-provider-adapter.js';
 import { MongoDatabaseClient } from '../../outbound/mongodb/mongo-database-client.js';
 import { MongoDiscoveryOutputRepository } from '../../outbound/mongodb/mongo-discovery-output-repository.js';
 import { MongoDiscoveryStateRepository } from '../../outbound/mongodb/mongo-discovery-state-repository.js';
@@ -61,9 +62,8 @@ async function main(): Promise<void> {
       quotaRepository.onModuleInit(),
     ]);
 
-    const provider = new ApifyGoogleMapsProviderAdapter(
-      runtimeConfiguration,
-      sourceCampaignConfiguration,
+    const provider = new ActorGatewayGoogleMapsProviderAdapter(
+      new ActorGatewayClient(runtimeConfiguration),
     );
     const createService = (): DiscoveryProgressService =>
       new DiscoveryProgressService(

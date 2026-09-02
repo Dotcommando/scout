@@ -2,6 +2,7 @@ import { ApifyClient } from 'apify-client';
 
 import {
   ACTOR_PROVIDER_RUN_STATUS,
+  ActorProviderError,
   IActorProviderPort,
   IActorProviderRun,
 } from '../../../ports/outbound/actor-provider.port.js';
@@ -14,7 +15,11 @@ export class ApifyActorProviderAdapter implements IActorProviderPort {
   }
 
   public async getRun(providerRunId: string): Promise<IActorProviderRun> {
-    return parseApifyRun(await this.client.run(providerRunId).get());
+    try {
+      return parseApifyRun(await this.client.run(providerRunId).get());
+    } catch (error: unknown) {
+      throw createApifyProviderError('get-run', error, { providerRunId });
+    }
   }
 
   public async listDatasetRecords(
@@ -22,17 +27,54 @@ export class ApifyActorProviderAdapter implements IActorProviderPort {
     offset: number,
     limit: number,
   ): Promise<readonly unknown[]> {
-    const page = await this.client.dataset(datasetId).listItems({ limit, offset });
+    try {
+      const page = await this.client.dataset(datasetId).listItems({ limit, offset });
 
-    return page.items;
+      return page.items;
+    } catch (error: unknown) {
+      throw createApifyProviderError('list-dataset-records', error, {});
+    }
   }
 
   public async startRun(
     actorId: string,
     input: Record<string, unknown>,
   ): Promise<IActorProviderRun> {
-    return parseApifyRun(await this.client.actor(actorId).start(input));
+    try {
+      return parseApifyRun(await this.client.actor(actorId).start(input));
+    } catch (error: unknown) {
+      throw createApifyProviderError('start-run', error, {});
+    }
   }
+}
+
+function createApifyProviderError(
+  operation: string,
+  error: unknown,
+  context: { readonly providerRunId?: string },
+): ActorProviderError {
+  const errorRecord = readErrorRecord(error);
+  const statusCode = readOptionalNumber(errorRecord, 'statusCode');
+  const providerCode = readOptionalString(errorRecord, 'type');
+
+  return new ActorProviderError(
+    operation,
+    statusCode === undefined || statusCode === 408 || statusCode === 429 || statusCode >= 500,
+    { ...context, ...(providerCode === undefined ? {} : { providerCode }), ...(statusCode === undefined ? {} : { statusCode }) },
+    error,
+  );
+}
+
+function readErrorRecord(value: unknown): Map<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? new Map(Object.entries(value))
+    : new Map<string, unknown>();
+}
+
+function readOptionalNumber(record: Map<string, unknown>, key: string): number | undefined {
+  const value = record.get(key);
+
+  return typeof value === 'number' && Number.isSafeInteger(value) ? value : undefined;
 }
 
 export class ApifyActorProviderContractError extends Error {

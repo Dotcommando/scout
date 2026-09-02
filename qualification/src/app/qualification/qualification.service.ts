@@ -32,6 +32,7 @@ import {
 import {
   IQualifiedLeadOutputRepositoryPort,
 } from '../../ports/outbound/qualified-lead-output-repository.port.js';
+import { QualificationEnrichmentService } from '../enrichment/qualification-enrichment.service.js';
 
 const EXECUTION_CLAIM_STALE_MILLISECONDS = 5 * 60 * 1000;
 
@@ -43,6 +44,7 @@ export class QualificationService implements IQualifyLeadUseCase {
     private readonly knownAffiliationPolicy: IKnownAffiliationPolicyPort,
     private readonly profileConfiguration: IQualificationProfileConfigurationPort,
     private readonly qualifiedLeadOutputRepository: IQualifiedLeadOutputRepositoryPort,
+    private readonly qualificationEnrichmentService?: QualificationEnrichmentService,
   ) {}
 
   public async qualifyLead(
@@ -130,6 +132,15 @@ export class QualificationService implements IQualifyLeadUseCase {
         profileVersion: profile.version,
         status: QUALIFIED_OUTPUT_STATUS.READY,
       });
+    }
+    if (this.qualificationEnrichmentService !== undefined) {
+      await this.qualificationEnrichmentService.enrichLead(
+        input.campaignId,
+        input.lead,
+        profile.version,
+        input.correlationId,
+        input.occurredAt,
+      );
     }
 
     const completed = await this.executionRepository.completeExecution({

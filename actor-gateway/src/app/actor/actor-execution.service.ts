@@ -1,4 +1,5 @@
 import {
+  ACTOR_REQUEST_STATUS,
   IActorGatewayRequestStatus,
   IActorGatewayResolveRequest,
 } from '@scout/contracts';
@@ -6,11 +7,16 @@ import {
 import { getActorDefinition } from '../../adapters/inbound/configuration/actor-definition-registry.js';
 import {
   ACTOR_PROVIDER_RUN_STATUS,
+  ActorProviderError,
   IActorProviderPort,
 } from '../../ports/outbound/actor-provider.port.js';
-import { IActorRequestRepositoryPort } from '../../ports/outbound/actor-request-repository.port.js';
+import {
+  ACTOR_EXECUTION_CLAIM_OUTCOME,
+  IActorRequestRepositoryPort,
+} from '../../ports/outbound/actor-request-repository.port.js';
 
 const DATASET_PAGE_SIZE = 100;
+const EXECUTION_CLAIM_STALE_MILLISECONDS = 5 * 60 * 1000;
 
 export class ActorExecutionService {
   public constructor(
@@ -22,42 +28,106 @@ export class ActorExecutionService {
     status: IActorGatewayRequestStatus,
     input: IActorGatewayResolveRequest,
   ): Promise<IActorGatewayRequestStatus> {
+    if (
+      status.status === ACTOR_REQUEST_STATUS.SUCCEEDED
+      || status.status === ACTOR_REQUEST_STATUS.FAILED
+    ) {
+      return status;
+    }
+
+    const now = new Date();
+    const claim = await this.actorRequestRepository.claimExecution(
+      status.requestId,
+      now.toISOString(),
+      new Date(now.getTime() - EXECUTION_CLAIM_STALE_MILLISECONDS).toISOString(),
+    );
+
+    if (claim.outcome === ACTOR_EXECUTION_CLAIM_OUTCOME.TERMINAL) {
+      return claim.status;
+    }
+    if (claim.outcome === ACTOR_EXECUTION_CLAIM_OUTCOME.IN_PROGRESS) {
+      return claim.status;
+    }
+    if (claim.outcome === ACTOR_EXECUTION_CLAIM_OUTCOME.UNKNOWN_START_OUTCOME) {
+      return this.actorRequestRepository.markRequestFailed(
+        status.requestId,
+        now.toISOString(),
+      );
+    }
+
     const definition = getActorDefinition(
       input.actorDefinitionId,
       input.actorRevision,
     );
+
+    try {
+      const providerRun = claim.providerRunId === undefined
+        ? await this.startProviderRun(status.requestId, definition.actorId, input)
+        : await this.actorProvider.getRun(claim.providerRunId);
+
+      if (providerRun.status === ACTOR_PROVIDER_RUN_STATUS.FAILED) {
+        return this.actorRequestRepository.markRequestFailed(
+          status.requestId,
+          new Date().toISOString(),
+        );
+      }
+      if (providerRun.status !== ACTOR_PROVIDER_RUN_STATUS.SUCCEEDED) {
+        return this.actorRequestRepository.findRequestStatus(status.requestId)
+          .then((current) => current ?? status);
+      }
+      if (providerRun.datasetId === undefined) {
+        throw new Error('successful actor provider run has no dataset reference');
+      }
+
+      const records = await this.readAllRecords(providerRun.datasetId);
+      const archiveId = crypto.randomUUID();
+
+      await this.actorRequestRepository.saveArchive({
+        actorDefinitionId: input.actorDefinitionId,
+        actorRevision: input.actorRevision,
+        archiveId,
+        content: new TextEncoder().encode(JSON.stringify(records)),
+        contentType: 'application/json',
+        recordBoundaryIndex: records.map((_record, index) => index),
+        requestId: status.requestId,
+        runId: providerRun.providerRunId,
+        storedAt: new Date().toISOString(),
+      });
+
+      return this.actorRequestRepository.markRequestSucceeded(
+        status.requestId,
+        archiveId,
+        new Date().toISOString(),
+      );
+    } catch (error: unknown) {
+      if (error instanceof ActorProviderError && !error.retryable) {
+        return this.actorRequestRepository.markRequestFailed(
+          status.requestId,
+          new Date().toISOString(),
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  private async startProviderRun(
+    requestId: string,
+    actorId: string,
+    input: IActorGatewayResolveRequest,
+  ) {
     const providerRun = await this.actorProvider.startRun(
-      definition.actorId,
+      actorId,
       readInputRecord(input.canonicalInput),
     );
 
-    if (providerRun.status !== ACTOR_PROVIDER_RUN_STATUS.SUCCEEDED) {
-      return status;
-    }
-    if (providerRun.datasetId === undefined) {
-      throw new Error('successful actor provider run has no dataset reference');
-    }
-
-    const records = await this.readAllRecords(providerRun.datasetId);
-    const archiveId = crypto.randomUUID();
-
-    await this.actorRequestRepository.saveArchive({
-      actorDefinitionId: input.actorDefinitionId,
-      actorRevision: input.actorRevision,
-      archiveId,
-      content: new TextEncoder().encode(JSON.stringify(records)),
-      contentType: 'application/json',
-      recordBoundaryIndex: records.map((_record, index) => index),
-      requestId: status.requestId,
-      runId: providerRun.providerRunId,
-      storedAt: new Date().toISOString(),
-    });
-
-    return this.actorRequestRepository.markRequestSucceeded(
-      status.requestId,
-      archiveId,
+    await this.actorRequestRepository.recordProviderRun(
+      requestId,
+      providerRun.providerRunId,
       new Date().toISOString(),
     );
+
+    return providerRun;
   }
 
   private async readAllRecords(datasetId: string): Promise<readonly unknown[]> {

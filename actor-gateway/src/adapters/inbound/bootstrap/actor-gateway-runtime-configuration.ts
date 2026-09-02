@@ -4,10 +4,12 @@ import { Injectable } from '@nestjs/common';
 import { config as loadEnvironmentFile } from 'dotenv';
 
 const ACTOR_GATEWAY_ENVIRONMENT_FILE_NAME = '.env';
+const APIFY_API_TOKEN_KEY = 'APIFY_API_TOKEN';
 const ACTOR_GATEWAY_MONGODB_URI_KEY = 'ACTOR_GATEWAY_MONGODB_URI';
 const ACTOR_GATEWAY_PORT_KEY = 'ACTOR_GATEWAY_PORT';
 
 export interface IActorGatewayRuntimeConfiguration {
+  readonly apifyApiToken: string;
   readonly mongodbUri: string;
   readonly port: number;
 }
@@ -28,12 +30,14 @@ export class ActorGatewayRuntimeConfigurationValidationError extends Error {
 @Injectable()
 export class ActorGatewayRuntimeConfiguration
   implements IActorGatewayRuntimeConfiguration {
+  public readonly apifyApiToken: string;
   public readonly mongodbUri: string;
   public readonly port: number;
 
   public constructor() {
     const configuration = loadActorGatewayRuntimeConfiguration();
 
+    this.apifyApiToken = configuration.apifyApiToken;
     this.mongodbUri = configuration.mongodbUri;
     this.port = configuration.port;
   }
@@ -63,6 +67,11 @@ export function createActorGatewayRuntimeConfiguration(
   configurationFilePath: string,
 ): IActorGatewayRuntimeConfiguration {
   return {
+    apifyApiToken: readRequiredValue(
+      environment[APIFY_API_TOKEN_KEY],
+      configurationFilePath,
+      APIFY_API_TOKEN_KEY,
+    ),
     mongodbUri: parseMongoDbUri(
       environment[ACTOR_GATEWAY_MONGODB_URI_KEY],
       configurationFilePath,
@@ -74,6 +83,22 @@ export function createActorGatewayRuntimeConfiguration(
       ACTOR_GATEWAY_PORT_KEY,
     ),
   };
+}
+
+function readRequiredValue(
+  value: string | undefined,
+  configurationFilePath: string,
+  fieldPath: string,
+): string {
+  if (value === undefined || value.trim().length === 0) {
+    throw new ActorGatewayRuntimeConfigurationValidationError(
+      configurationFilePath,
+      fieldPath,
+      'is required',
+    );
+  }
+
+  return value;
 }
 
 function parsePort(

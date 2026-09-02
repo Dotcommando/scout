@@ -2,7 +2,8 @@ import { IDiscoveryCampaignConfiguration } from '../../../app/discovery/discover
 import { DiscoveryProgressService } from '../../../app/discovery/discovery-progress.service.js';
 import { LIVE_DISCOVERY_EXECUTION_PURPOSE } from '../../../domain/discovery/live-discovery-execution-model.js';
 import { IDiscoveryCampaignConfigurationPort } from '../../../ports/outbound/discovery-campaign-configuration.port.js';
-import { ApifyGoogleMapsProviderAdapter } from '../../outbound/apify/apify-google-maps-provider-adapter.js';
+import { ActorGatewayClient } from '../../outbound/actor-gateway/actor-gateway-client.js';
+import { ActorGatewayGoogleMapsProviderAdapter } from '../../outbound/actor-gateway/actor-gateway-google-maps-provider-adapter.js';
 import { MongoDatabaseClient } from '../../outbound/mongodb/mongo-database-client.js';
 import { MongoDiscoveryOutputRepository } from '../../outbound/mongodb/mongo-discovery-output-repository.js';
 import { MongoDiscoveryStateRepository } from '../../outbound/mongodb/mongo-discovery-state-repository.js';
@@ -48,7 +49,7 @@ async function main(): Promise<void> {
       new LiveCampaignConfiguration(campaign.getCampaignConfiguration(), maximumItemCount),
       new SystemClock(),
       outputs,
-      new ApifyGoogleMapsProviderAdapter(runtime, campaign),
+      new ActorGatewayGoogleMapsProviderAdapter(new ActorGatewayClient(runtime)),
       leads,
       state,
       new LiveProviderQuotaRepository(campaign.getCampaignConfiguration().configurationHash, executionConfiguration, command.executionId, executions, command.purpose, quota),

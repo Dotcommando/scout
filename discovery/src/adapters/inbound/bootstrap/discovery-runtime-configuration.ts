@@ -16,7 +16,6 @@ const DISCOVERY_RABBITMQ_RETRY_DELAY_MS_KEY =
 const DISCOVERY_RABBITMQ_RETRY_MAX_ATTEMPTS_KEY =
   'DISCOVERY_RABBITMQ_RETRY_MAX_ATTEMPTS';
 const DISCOVERY_RABBITMQ_URI_KEY = 'DISCOVERY_RABBITMQ_URI';
-const APIFY_API_TOKEN_KEY = 'APIFY_API_TOKEN';
 const MINIMUM_RABBITMQ_CONNECTION_TIMEOUT_MS = 100;
 const MAXIMUM_RABBITMQ_CONNECTION_TIMEOUT_MS = 30_000;
 const MINIMUM_RABBITMQ_PREFETCH = 1;
@@ -27,7 +26,6 @@ const MAXIMUM_RABBITMQ_RETRY_MAX_ATTEMPTS = 10;
 
 export interface IDiscoveryRuntimeConfiguration {
   readonly actorGatewayUrl: string;
-  readonly apifyApiToken: string;
   readonly liveArtifactDirectory: string;
   readonly mongodbUri: string;
   readonly port: number;
@@ -54,7 +52,6 @@ export class RuntimeConfigurationValidationError extends Error {
 @Injectable()
 export class DiscoveryRuntimeConfiguration
   implements IDiscoveryRuntimeConfiguration {
-  public readonly apifyApiToken: string;
   public readonly actorGatewayUrl: string;
   public readonly liveArtifactDirectory: string;
   public readonly mongodbUri: string;
@@ -68,7 +65,6 @@ export class DiscoveryRuntimeConfiguration
   public constructor() {
     const configuration = loadDiscoveryRuntimeConfiguration();
 
-    this.apifyApiToken = configuration.apifyApiToken;
     this.actorGatewayUrl = configuration.actorGatewayUrl;
     this.liveArtifactDirectory = configuration.liveArtifactDirectory;
     this.mongodbUri = configuration.mongodbUri;
@@ -114,11 +110,6 @@ export function createDiscoveryRuntimeConfiguration(
     configurationFilePath,
     DISCOVERY_MONGODB_URI_KEY,
   );
-  const apifyApiToken = readRequiredValue(
-    environment[APIFY_API_TOKEN_KEY],
-    configurationFilePath,
-    APIFY_API_TOKEN_KEY,
-  );
   const actorGatewayUrl = parseHttpUrl(
     environment[DISCOVERY_ACTOR_GATEWAY_URL_KEY],
     configurationFilePath,
@@ -136,7 +127,6 @@ export function createDiscoveryRuntimeConfiguration(
   );
 
   return {
-    apifyApiToken,
     actorGatewayUrl,
     liveArtifactDirectory,
     mongodbUri,

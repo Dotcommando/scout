@@ -1,0 +1,16 @@
+profiles:
+  - campaignId: europe-gb-ie
+    enabled: true
+    actorDefinitionId: google-hotels-market
+    actorRevision: latest
+    cachePolicyRevision: qualification-google-hotels-v1
+    locale: en
+    currency: GBP
+    guests: 2
+    nights: 1
+    amenityCatalogue:
+      - pool
+      - spa
+      - restaurant
+      - bar
+      - gym
