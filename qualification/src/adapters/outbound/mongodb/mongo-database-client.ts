@@ -1,5 +1,5 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { MongoClient } from 'mongodb';
+import { Db, MongoClient } from 'mongodb';
 
 import { QualificationRuntimeConfiguration } from '../../inbound/bootstrap/qualification-runtime-configuration.js';
 import {
@@ -60,5 +60,9 @@ export class MongoDatabaseClient implements OnModuleDestroy, OnModuleInit {
 
   public async verifyConnection(): Promise<void> {
     await this.client.db().command({ ping: 1 });
+  }
+
+  public getDatabase(): Db {
+    return this.client.db();
   }
 }

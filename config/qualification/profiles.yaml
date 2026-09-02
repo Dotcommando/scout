@@ -1,0 +1,12 @@
+version: 1
+profiles:
+  - campaignId: europe-gb-ie
+    profileId: lead-baseline
+    profileVersion: 1
+    requirements:
+      name: true
+      address: false
+      phoneNumber: false
+      websiteUrl: false
+    excludedSourceIdentities: []
+    excludedWebsiteHosts: []

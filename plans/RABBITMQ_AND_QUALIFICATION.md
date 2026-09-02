@@ -228,7 +228,7 @@ turn it into a new lead.
 
 ## Step 3 — Build Qualification's generic domain, profile configuration, and durable records
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -281,6 +281,25 @@ with machine-readable reasons and the exact profile version.
 - Qualification has no hospitality-specific class, field, or service name.
 - Every result is auditable with profile version and enum reason codes.
 - Changing a profile does not require another Discovery run.
+
+### Done
+
+- Added the independent Qualification domain and application use case with
+  deterministic `QUALIFIED`, `REJECTED`, and `INDETERMINATE` decisions,
+  machine-readable reason enums, exact source-identity and website-host
+  exclusions, and durable execution identity by campaign, lead, and profile
+  version.
+- Added validated `config/qualification/profiles.yaml`. Each profile has a
+  stable canonical content hash and version; a new version deliberately
+  re-evaluates an already-known lead without another Discovery run.
+- Added Qualification-owned Mongo inbox, execution, decision, and qualified
+  output repositories with uniqueness indexes and an atomic stale-claim
+  recovery path. Qualified outputs are provider-neutral delivery-ready
+  snapshots; no downstream transport was added.
+- Added unit, application, and MongoDB integration coverage. Ran Qualification
+  and Discovery lint, strict typecheck, tests, and builds. Rebuilt and started
+  Qualification through Docker Compose; `/health/ready` reported MongoDB and
+  RabbitMQ as ready.
 
 ## Step 4 — Consume Discovery events idempotently and emit qualification results safely
 

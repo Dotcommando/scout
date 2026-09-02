@@ -63,6 +63,8 @@ services:
       QUALIFICATION_RABBITMQ_URI: amqp://rabbitmq:5672
     ports:
       - '${QUALIFICATION_PORT}:3002'
+    volumes:
+      - ./config/qualification:/workspace/config/qualification:ro
 
 volumes:
   rabbitmq_data:

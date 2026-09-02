@@ -66,7 +66,10 @@ export default [
       parserOptions: {
         sourceType: 'module',
         ecmaVersion: 2022,
-        project: path.join(__dirname, 'tsconfig.json'),
+        project: [
+          path.join(__dirname, 'tsconfig.json'),
+          path.join(__dirname, 'tsconfig.test.json'),
+        ],
         tsconfigRootDir: __dirname,
       },
       globals: {
