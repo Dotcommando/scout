@@ -13,6 +13,7 @@ import { MongoQualifiedLeadOutputRepository } from '../../outbound/mongodb/mongo
 import { RabbitMqConnectionVerifier } from '../../outbound/rabbitmq/rabbitmq-connection-verifier.js';
 import { QualificationRuntimeConfiguration } from '../bootstrap/qualification-runtime-configuration.js';
 import { KnownAffiliationCatalogConfiguration } from '../configuration/known-affiliation-catalog-configuration.js';
+import { MongoQualificationConfiguration } from '../configuration/mongo-qualification-configuration.js';
 import { QualificationEnrichmentConfiguration } from '../configuration/qualification-enrichment-configuration.js';
 import { QualificationProfileConfiguration } from '../configuration/qualification-profile-configuration.js';
 import { RabbitMqDiscoveredLeadConsumer } from '../rabbitmq/rabbitmq-discovered-lead-consumer.js';
@@ -22,9 +23,19 @@ import { HealthController } from './health.controller.js';
   controllers: [HealthController],
   providers: [
     QualificationRuntimeConfiguration,
-    QualificationProfileConfiguration,
-    QualificationEnrichmentConfiguration,
-    KnownAffiliationCatalogConfiguration,
+    MongoQualificationConfiguration,
+    {
+      provide: QualificationProfileConfiguration,
+      useExisting: MongoQualificationConfiguration,
+    },
+    {
+      provide: QualificationEnrichmentConfiguration,
+      useExisting: MongoQualificationConfiguration,
+    },
+    {
+      provide: KnownAffiliationCatalogConfiguration,
+      useExisting: MongoQualificationConfiguration,
+    },
     ConfigurationKnownAffiliationPolicy,
     MongoDatabaseClient,
     MongoQualificationDecisionRepository,

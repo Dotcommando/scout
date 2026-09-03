@@ -14,20 +14,26 @@ import { KnownAffiliationCatalogConfiguration } from '../../inbound/configuratio
 @Injectable()
 export class ConfigurationKnownAffiliationPolicy
   implements IKnownAffiliationPolicyPort {
-  private readonly policy: KnownAffiliationPolicy;
+  private policy: KnownAffiliationPolicy | undefined;
 
   public constructor(
-    catalogConfiguration: KnownAffiliationCatalogConfiguration,
-  ) {
-    const catalog = catalogConfiguration.getCatalog();
-
-    this.policy = new KnownAffiliationPolicy(catalog.revision, catalog.entries);
-  }
+    private readonly catalogConfiguration: KnownAffiliationCatalogConfiguration,
+  ) {}
 
   public findMatch(
     lead: ILeadSnapshot,
     enabledScopes: readonly KNOWN_AFFILIATION_SCOPE[] | undefined,
   ): IKnownAffiliationMatch | null {
-    return this.policy.findMatch(lead, enabledScopes);
+    return this.getPolicy().findMatch(lead, enabledScopes);
+  }
+
+  private getPolicy(): KnownAffiliationPolicy {
+    if (this.policy === undefined) {
+      const catalog = this.catalogConfiguration.getCatalog();
+
+      this.policy = new KnownAffiliationPolicy(catalog.revision, catalog.entries);
+    }
+
+    return this.policy;
   }
 }

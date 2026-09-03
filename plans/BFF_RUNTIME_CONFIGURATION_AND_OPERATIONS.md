@@ -612,7 +612,7 @@ count.
 
 ## Step 7 — Persist and migrate revisioned Qualification configuration
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -658,6 +658,20 @@ affiliation-catalogue revisions.
 
 - Qualification no longer obtains editable runtime policy from YAML files.
 - Decision and metric audit data identify immutable configuration revisions.
+
+### Done
+
+- Added a Qualification-owned MongoDB configuration adapter. It seeds the
+  current validated profile, enrichment and affiliation catalogue YAML exactly
+  once when no active configuration records exist, then serves configuration
+  exclusively from its own persistence/cache during runtime.
+- Rewired Qualification bootstrap to use the durable adapter for all three
+  existing application ports; deferred affiliation-policy construction until
+  configuration initialization so Nest lifecycle ordering remains safe.
+- Verified Qualification strict typecheck, lint, unit/integration tests and
+  build. Mandatory Architecture Gate: application/domain imports remain
+  unchanged; YAML parsing and MongoDB ownership are confined to inbound/outbound
+  configuration adapters respectively.
 
 ## Step 8 — Expose Qualification configuration CRUD through service and BFF APIs
 
