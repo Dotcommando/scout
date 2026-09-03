@@ -8,6 +8,7 @@ import {
   DISCOVERY_WORK_OUTCOME,
   DiscoveryWorkError,
 } from '../../../app/discovery/discovery-progress.service.js';
+import type { IDiscoveryOperationRunRepositoryPort } from '../../../ports/outbound/discovery-operation-run-repository.port.js';
 import { writeDiscoveryFailureLog, writeDiscoveryLog } from '../bootstrap/discovery-structured-logger.js';
 
 const DISCOVERY_WORK_INTERVAL_MILLISECONDS = 60_000;
@@ -18,6 +19,7 @@ export class DiscoveryWorker {
 
   public constructor(
     private readonly discoveryWorkUseCase: IDiscoveryWorkUseCase,
+    private readonly operationRunRepository?: IDiscoveryOperationRunRepositoryPort,
   ) {}
 
   @Interval(DISCOVERY_WORK_INTERVAL_MILLISECONDS)
@@ -34,15 +36,17 @@ export class DiscoveryWorker {
     const correlationId = crypto.randomUUID();
 
     try {
+      const operationRun = await this.operationRunRepository?.claimNextAcceptedRun(new Date());
       const result = await this.discoveryWorkUseCase.advanceDiscoveryWork({
         correlationId,
+        ...(operationRun === undefined ? {} : { maximumProviderItems: operationRun.maximumProviderItems }),
         workerId: `discovery-worker-${process.pid}`,
       });
 
       writeDiscoveryLog({
         className: 'DiscoveryWorker',
         correlationId,
-        input: result,
+        input: { ...(operationRun === undefined ? {} : { runId: operationRun.runId }), ...result },
         level: 'info',
         method: 'triggerWork',
         operation: 'advance-discovery-work',

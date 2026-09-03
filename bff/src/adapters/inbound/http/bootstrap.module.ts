@@ -6,10 +6,11 @@ import { LocalDiscoveryManagementClient } from '../../outbound/http/local-discov
 import { LocalServiceReadinessClient } from '../../outbound/http/local-service-readiness-client.js';
 import { BffRuntimeConfiguration } from '../bootstrap/bff-runtime-configuration.js';
 import { DiscoveryConfigurationController } from './discovery-configuration.controller.js';
+import { DiscoveryRunController } from './discovery-run.controller.js';
 import { HealthController } from './health.controller.js';
 
 @Module({
-  controllers: [DiscoveryConfigurationController, HealthController],
+  controllers: [DiscoveryConfigurationController, DiscoveryRunController, HealthController],
   providers: [
     BffRuntimeConfiguration,
     LocalServiceReadinessClient,

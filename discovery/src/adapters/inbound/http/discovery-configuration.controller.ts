@@ -22,6 +22,7 @@ import {
   DiscoveryConfigurationConflictError,
   DiscoveryConfigurationNotFoundError,
 } from '../../../app/discovery/manage-discovery-configurations.service.js';
+import { RequestDiscoveryRunService } from '../../../app/discovery/request-discovery-run.service.js';
 import { DISCOVERY_SOURCE_KIND } from '../../../domain/discovery/discovery-model.js';
 import type {
   IDiscoveryConfigurationPage,
@@ -36,17 +37,23 @@ import type {
 import {
   MANAGE_DISCOVERY_CONFIGURATIONS_USE_CASE,
 } from '../../../ports/inbound/manage-discovery-configurations.use-case.js';
+import type { IDiscoveryOperationRun } from '../../../ports/outbound/discovery-operation-run-repository.port.js';
+import { MongoDiscoveryOperationRunRepository } from '../../outbound/mongodb/mongo-discovery-operation-run-repository.js';
+import { MongoDiscoveryCampaignConfiguration } from '../configuration/mongo-discovery-campaign-configuration.js';
 
-@Controller('v1/discovery/configurations')
+@Controller('v1/discovery')
 export class DiscoveryConfigurationController {
   public constructor(
     @Inject(GET_DISCOVERY_CONFIGURATIONS_USE_CASE)
     private readonly getDiscoveryConfigurationsUseCase: IGetDiscoveryConfigurationsUseCase,
     @Inject(MANAGE_DISCOVERY_CONFIGURATIONS_USE_CASE)
     private readonly manageDiscoveryConfigurationsUseCase: IManageDiscoveryConfigurationsUseCase,
+    private readonly requestDiscoveryRunService: RequestDiscoveryRunService,
+    private readonly operationRunRepository: MongoDiscoveryOperationRunRepository,
+    private readonly campaignConfiguration: MongoDiscoveryCampaignConfiguration,
   ) {}
 
-  @Get()
+  @Get('configurations')
   public async getConfigurations(
     @Query('offset') offsetValue = '0',
     @Query('limit') limitValue = '50',
@@ -57,7 +64,85 @@ export class DiscoveryConfigurationController {
     ));
   }
 
-  @Post()
+  @Post('runs')
+  @HttpCode(202)
+  public async requestRun(@Body() body: unknown): Promise<IDiscoveryOperationRun> {
+    const record = readRecord(body);
+    const optionalIdempotencyKey = record.idempotencyKey;
+
+    if (optionalIdempotencyKey !== undefined && typeof optionalIdempotencyKey !== 'string') {
+      throw new UnprocessableEntityException({ message: 'idempotencyKey must be a string' });
+    }
+
+    return this.handleRequest(() => this.requestDiscoveryRunService.requestRun({
+      campaignId: readString(record.campaignId, 'campaignId'),
+      ...(optionalIdempotencyKey === undefined ? {} : { idempotencyKey: optionalIdempotencyKey }),
+      maximumProviderItems: readPositiveInteger(record.maximumProviderItems, 'maximumProviderItems'),
+    }));
+  }
+
+  @Get('runs')
+  public async getRuns(
+    @Query('campaignId') campaignId: string | undefined,
+    @Query('offset') offsetValue = '0',
+    @Query('limit') limitValue = '50',
+  ): Promise<unknown> {
+    const offset = Number(offsetValue);
+    const limit = Number(limitValue);
+
+    if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new UnprocessableEntityException({ message: 'offset and limit are invalid' });
+    }
+
+    const page = await this.operationRunRepository.listRuns(campaignId, offset, limit);
+
+    return { ...page, limit, offset };
+  }
+
+  @Get('runs/:runId')
+  public async getRun(
+    @Param('runId') runId: string,
+  ): Promise<IDiscoveryOperationRun> {
+    const run = await this.operationRunRepository.findRun(runId);
+
+    if (run === undefined) {
+      throw new NotFoundException({ message: `Discovery run ${runId} was not found` });
+    }
+
+    return run;
+  }
+
+  @Get('status')
+  public async getStatus(
+    @Query('campaignId') campaignId: string,
+  ): Promise<unknown> {
+    const configuration = this.campaignConfiguration.getCampaignConfiguration();
+
+    if (campaignId !== configuration.campaignId) {
+      throw new NotFoundException({ message: `Discovery campaign ${campaignId} is not active` });
+    }
+
+    const runs = await this.operationRunRepository.listRuns(campaignId, 0, 100);
+    const statusCounts = runs.items.reduce<Record<string, number>>(
+      (counts, run) => ({
+        ...counts,
+        [run.status]: (counts[run.status] ?? 0) + 1,
+      }),
+      {},
+    );
+
+    return {
+      activeConfiguration: {
+        campaignId: configuration.campaignId,
+        configurationHash: configuration.configurationHash,
+        version: configuration.version,
+      },
+      campaignId,
+      runStatusCounts: statusCounts,
+    };
+  }
+
+  @Post('configurations')
   public async createConfiguration(
     @Body() body: unknown,
   ): Promise<IStoredDiscoveryCampaignConfiguration> {
@@ -66,7 +151,7 @@ export class DiscoveryConfigurationController {
     ));
   }
 
-  @Put(':campaignId')
+  @Put('configurations/:campaignId')
   public async replaceConfiguration(
     @Param('campaignId') campaignId: string,
     @Body() body: unknown,
@@ -80,7 +165,7 @@ export class DiscoveryConfigurationController {
     ));
   }
 
-  @Post(':campaignId/activate')
+  @Post('configurations/:campaignId/activate')
   public async activateConfiguration(
     @Param('campaignId') campaignId: string,
     @Body() body: unknown,
@@ -93,7 +178,7 @@ export class DiscoveryConfigurationController {
     ));
   }
 
-  @Delete()
+  @Delete('configurations')
   @HttpCode(200)
   public async archiveConfigurations(
     @Body() body: unknown,

@@ -52,6 +52,7 @@ export enum DISCOVERY_WORK_OUTCOME {
 
 export interface IAdvanceDiscoveryWorkInput {
   readonly correlationId: string;
+  readonly maximumProviderItems?: number;
   readonly workerId: string;
 }
 
@@ -168,7 +169,7 @@ export class DiscoveryProgressService implements IDiscoveryWorkUseCase {
     const reservedScope = await this.reserveProviderItems(
       scope,
       configuration.limits.dailyProviderItemLimit,
-      configuration.limits.maxProviderItemsPerRun,
+      input.maximumProviderItems ?? configuration.limits.maxProviderItemsPerRun,
       currentTime,
     );
 

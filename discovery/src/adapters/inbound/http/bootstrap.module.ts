@@ -6,6 +6,7 @@ import { DiscoveryOutputPublisherService } from '../../../app/discovery/discover
 import { DiscoveryProgressService } from '../../../app/discovery/discovery-progress.service.js';
 import { GetDiscoveryConfigurationsService } from '../../../app/discovery/get-discovery-configurations.service.js';
 import { ManageDiscoveryConfigurationsService } from '../../../app/discovery/manage-discovery-configurations.service.js';
+import { RequestDiscoveryRunService } from '../../../app/discovery/request-discovery-run.service.js';
 import { GET_DISCOVERY_CONFIGURATIONS_USE_CASE } from '../../../ports/inbound/get-discovery-configurations.use-case.js';
 import { MANAGE_DISCOVERY_CONFIGURATIONS_USE_CASE } from '../../../ports/inbound/manage-discovery-configurations.use-case.js';
 import { DISCOVERY_CAMPAIGN_CONFIGURATION_REPOSITORY } from '../../../ports/outbound/discovery-campaign-configuration-repository.port.js';
@@ -16,6 +17,7 @@ import { MongoDatabaseClient } from '../../outbound/mongodb/mongo-database-clien
 import { MongoDiscoveryBackfillRunRepository } from '../../outbound/mongodb/mongo-discovery-backfill-run-repository.js';
 import { MongoDiscoveryCampaignConfigurationRepository } from '../../outbound/mongodb/mongo-discovery-campaign-configuration-repository.js';
 import { MongoDiscoveryDailyStartRepository } from '../../outbound/mongodb/mongo-discovery-daily-start-repository.js';
+import { MongoDiscoveryOperationRunRepository } from '../../outbound/mongodb/mongo-discovery-operation-run-repository.js';
 import { MongoDiscoveryOutputRepository } from '../../outbound/mongodb/mongo-discovery-output-repository.js';
 import { MongoDiscoveryStateRepository } from '../../outbound/mongodb/mongo-discovery-state-repository.js';
 import { MongoLeadRepository } from '../../outbound/mongodb/mongo-lead-repository.js';
@@ -56,6 +58,7 @@ import { HealthController } from './health.controller.js';
     MongoDiscoveryBackfillRunRepository,
     MongoDiscoveryDailyStartRepository,
     MongoDiscoveryOutputRepository,
+    MongoDiscoveryOperationRunRepository,
     MongoDiscoveryStateRepository,
     MongoLeadRepository,
     MongoProviderQuotaRepository,
@@ -67,6 +70,23 @@ import { HealthController } from './health.controller.js';
       provide: ActorGatewayClient,
       useFactory: (runtimeConfiguration: DiscoveryRuntimeConfiguration): ActorGatewayClient =>
         new ActorGatewayClient(runtimeConfiguration),
+    },
+    {
+      inject: [
+        MongoDiscoveryCampaignConfiguration,
+        SystemClock,
+        MongoDiscoveryOperationRunRepository,
+      ],
+      provide: RequestDiscoveryRunService,
+      useFactory: (
+        campaignConfiguration: MongoDiscoveryCampaignConfiguration,
+        clock: SystemClock,
+        operationRunRepository: MongoDiscoveryOperationRunRepository,
+      ): RequestDiscoveryRunService => new RequestDiscoveryRunService(
+        campaignConfiguration,
+        clock,
+        operationRunRepository,
+      ),
     },
     {
       inject: [ActorGatewayClient],
@@ -117,10 +137,15 @@ import { HealthController } from './health.controller.js';
       ),
     },
     {
-      inject: [DiscoveryProgressService],
+      inject: [DiscoveryProgressService, MongoDiscoveryOperationRunRepository],
       provide: DiscoveryWorker,
-      useFactory: (discoveryProgressService: DiscoveryProgressService): DiscoveryWorker =>
-        new DiscoveryWorker(discoveryProgressService),
+      useFactory: (
+        discoveryProgressService: DiscoveryProgressService,
+        operationRunRepository: MongoDiscoveryOperationRunRepository,
+      ): DiscoveryWorker => new DiscoveryWorker(
+        discoveryProgressService,
+        operationRunRepository,
+      ),
     },
     DiscoveryStartupCoordinator,
     {

@@ -554,7 +554,7 @@ verify no existing CLI-only object graph is accidentally reused unsafely.
 
 ## Step 6 — Add manual Discovery commands and status APIs
 
-**Status:** Pending
+**Status:** In Progress
 
 ### Objective
 
