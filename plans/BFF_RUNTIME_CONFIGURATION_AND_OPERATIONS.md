@@ -301,14 +301,17 @@ service database.
 1. Add a `bff` NestJS service with the repository's strict TypeScript, logging,
    liveness/readiness, graceful shutdown, Dockerfile, dedicated runtime
    configuration, and `BFF_PORT=3000` in both root `.env` files.
-2. Add service URLs, timeouts, and an explicit local CORS allow-list to BFF
+2. Copy `.npmrc`, `eslint.config.mjs`, `tsconfig.json`, and
+   `tsconfig.build.json` unchanged from one existing project microservice
+   before adding BFF-specific code. Do not recreate or relax these settings.
+3. Add service URLs, timeouts, and an explicit local CORS allow-list to BFF
    configuration. Bind browser-exposed ports to loopback in Compose or document
    equivalent local-only exposure; do not add authentication yet.
-3. Define narrow, versioned request/response parsers for BFF-to-Discovery and
+4. Define narrow, versioned request/response parsers for BFF-to-Discovery and
    BFF-to-Qualification management, command, status, and result APIs.
    `packages/contracts` contains only stable transport schemas, not domains or
    persistence documents.
-4. Add typed BFF outbound HTTP adapters with correlation propagation, safe
+5. Add typed BFF outbound HTTP adapters with correlation propagation, safe
    error normalization, and bounded timeouts. BFF readiness depends on service
    readiness; liveness does not.
 
@@ -316,6 +319,8 @@ service database.
 
 - Run BFF lint, typecheck, tests, and build; verify readiness against healthy
   and unavailable Discovery/Qualification dependencies.
+- Verify the four copied baseline files match the selected source microservice
+  byte-for-byte before BFF-specific additions are made.
 - Confirm BFF tests prove it cannot create a MongoDB client for Discovery or
   Qualification databases.
 - Run the Mandatory Architecture Gate with particular focus on BFF client
