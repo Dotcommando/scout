@@ -4,7 +4,10 @@ import { Collection } from 'mongodb';
 import {
   IDiscoveryCampaignConfiguration,
 } from '../../../app/discovery/discovery-campaign-configuration.js';
-import { IDiscoveryCampaignConfigurationRepositoryPort } from '../../../ports/outbound/discovery-campaign-configuration-repository.port.js';
+import {
+  IDiscoveryCampaignConfigurationPage,
+  IDiscoveryCampaignConfigurationRepositoryPort,
+} from '../../../ports/outbound/discovery-campaign-configuration-repository.port.js';
 import { MongoDatabaseClient } from './mongo-database-client.js';
 
 enum DISCOVERY_CONFIGURATION_LIFECYCLE {
@@ -35,6 +38,26 @@ export class MongoDiscoveryCampaignConfigurationRepository
     });
 
     return document === null ? undefined : toConfiguration(document);
+  }
+
+  public async findConfigurations(
+    offset: number,
+    limit: number,
+  ): Promise<IDiscoveryCampaignConfigurationPage> {
+    const [documents, total] = await Promise.all([
+      this.collection
+        .find({})
+        .sort({ campaignId: 1, version: 1 })
+        .skip(offset)
+        .limit(limit)
+        .toArray(),
+      this.collection.countDocuments(),
+    ]);
+
+    return {
+      items: documents.map((document) => toConfiguration(document)),
+      total,
+    };
   }
 
   public async onModuleInit(): Promise<void> {

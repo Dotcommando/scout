@@ -433,7 +433,7 @@ Discovery run records the exact configuration revision/content hash it used.
 
 ## Step 4 — Expose Discovery configuration CRUD through service and BFF APIs
 
-**Status:** Pending
+**Status:** In Progress
 
 ### Objective
 

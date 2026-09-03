@@ -3,6 +3,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 
 import { DiscoveryBackfillService } from '../../../app/discovery/discovery-backfill.service.js';
 import { DiscoveryOutputPublisherService } from '../../../app/discovery/discovery-output-publisher.service.js';
+import { GetDiscoveryConfigurationsService } from '../../../app/discovery/get-discovery-configurations.service.js';
+import { GET_DISCOVERY_CONFIGURATIONS_USE_CASE } from '../../../ports/inbound/get-discovery-configurations.use-case.js';
 import { DISCOVERY_CAMPAIGN_CONFIGURATION_REPOSITORY } from '../../../ports/outbound/discovery-campaign-configuration-repository.port.js';
 import { MongoDatabaseClient } from '../../outbound/mongodb/mongo-database-client.js';
 import { MongoDiscoveryBackfillRunRepository } from '../../outbound/mongodb/mongo-discovery-backfill-run-repository.js';
@@ -15,10 +17,11 @@ import { SystemClock } from '../../outbound/time/system-clock.js';
 import { DiscoveryRuntimeConfiguration } from '../bootstrap/discovery-runtime-configuration.js';
 import { MongoDiscoveryCampaignConfiguration } from '../configuration/mongo-discovery-campaign-configuration.js';
 import { DiscoveryOutputPublisherWorker } from '../scheduler/discovery-output-publisher-worker.js';
+import { DiscoveryConfigurationController } from './discovery-configuration.controller.js';
 import { HealthController } from './health.controller.js';
 
 @Module({
-  controllers: [HealthController],
+  controllers: [DiscoveryConfigurationController, HealthController],
   imports: [ScheduleModule.forRoot()],
   providers: [
     MongoDiscoveryCampaignConfiguration,
@@ -34,6 +37,15 @@ import { HealthController } from './health.controller.js';
     RabbitMqConnectionVerifier,
     RabbitMqDiscoveredLeadMessagePublisher,
     SystemClock,
+    {
+      inject: [DISCOVERY_CAMPAIGN_CONFIGURATION_REPOSITORY],
+      provide: GET_DISCOVERY_CONFIGURATIONS_USE_CASE,
+      useFactory: (
+        configurationRepository: MongoDiscoveryCampaignConfigurationRepository,
+      ): GetDiscoveryConfigurationsService => new GetDiscoveryConfigurationsService(
+        configurationRepository,
+      ),
+    },
     {
       inject: [
         MongoDiscoveryCampaignConfiguration,
