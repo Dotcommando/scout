@@ -1211,6 +1211,20 @@ While working:
   `Done` entry;
 - do not silently perform work that belongs to a later plan step.
 
+### Step Continuity
+
+Completing a plan step does not require user approval to begin the next one.
+After a step satisfies its verification and DoD, record its `Done` section,
+commit and push the completed step, then immediately review and mark the next
+pending step `In Progress`. Continue this sequence until the plan is complete.
+
+Pause for user input only when a decision, authority, credential, external
+coordination, or material scope choice is genuinely required to proceed
+safely. Do not pause merely to report a completed step, request permission to
+continue, or wait for confirmation between ordinary plan steps. If no such
+decision is required, plans should be executed to completion in the same
+continuous work stream.
+
 ### Completed Steps And History
 
 Completed steps form an execution history.
