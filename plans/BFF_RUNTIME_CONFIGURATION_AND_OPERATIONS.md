@@ -433,7 +433,7 @@ Discovery run records the exact configuration revision/content hash it used.
 
 ## Step 4 — Expose Discovery configuration CRUD through service and BFF APIs
 
-**Status:** In Progress
+**Status:** Done
 
 ### Objective
 
@@ -470,6 +470,21 @@ all-or-nothing batch deletion.
 - CRUD semantics match one-create/one-update/all-read/many-delete requirements.
 - Configuration management reaches Discovery only through its HTTP adapter and
   application ports.
+
+### Done
+
+- Added Discovery-owned configuration command ports and application service for
+  creating immutable drafts, optimistic replacement, activation, paginated
+  listing, and all-or-nothing archive validation. MongoDB now persists draft,
+  active, and archived lifecycle values; active records cannot be archived.
+- Added thin Discovery HTTP handlers and BFF typed HTTP facade routes for the
+  configuration surface. The BFF forwards correlation IDs and does not access
+  Discovery persistence.
+- Verified Discovery and BFF strict typecheck, lint, unit/integration tests,
+  and builds. Mandatory Architecture Gate: targeted imports confirm the
+  management service depends only on its inbound/outbound ports and clock;
+  MongoDB remains in Discovery's outbound adapter and BFF uses only a typed
+  local HTTP client.
 
 ## Step 5 — Compose Discovery work and add durable daily startup
 

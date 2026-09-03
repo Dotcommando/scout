@@ -10,6 +10,27 @@ export interface IDiscoveryCampaignConfiguration {
   readonly version: number;
 }
 
+export enum DISCOVERY_CONFIGURATION_LIFECYCLE {
+  ACTIVE = 'active',
+  ARCHIVED = 'archived',
+  DRAFT = 'draft',
+}
+
+export interface IStoredDiscoveryCampaignConfiguration
+  extends IDiscoveryCampaignConfiguration {
+  readonly createdAt: Date;
+  readonly lifecycle: DISCOVERY_CONFIGURATION_LIFECYCLE;
+  readonly updatedAt: Date;
+}
+
+export interface IDiscoveryCampaignConfigurationInput {
+  readonly campaignId: string;
+  readonly limits: IDiscoveryCampaignLimits;
+  readonly scopes: readonly IDiscoveryScopeConfiguration[];
+  readonly searchQueries: readonly string[];
+  readonly source: IDiscoverySourceConfiguration;
+}
+
 export interface IDiscoveryCampaignLimits {
   readonly dailyProviderItemLimit: number;
   readonly maxProviderItemsPerRun: number;

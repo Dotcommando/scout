@@ -4,7 +4,9 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { DiscoveryBackfillService } from '../../../app/discovery/discovery-backfill.service.js';
 import { DiscoveryOutputPublisherService } from '../../../app/discovery/discovery-output-publisher.service.js';
 import { GetDiscoveryConfigurationsService } from '../../../app/discovery/get-discovery-configurations.service.js';
+import { ManageDiscoveryConfigurationsService } from '../../../app/discovery/manage-discovery-configurations.service.js';
 import { GET_DISCOVERY_CONFIGURATIONS_USE_CASE } from '../../../ports/inbound/get-discovery-configurations.use-case.js';
+import { MANAGE_DISCOVERY_CONFIGURATIONS_USE_CASE } from '../../../ports/inbound/manage-discovery-configurations.use-case.js';
 import { DISCOVERY_CAMPAIGN_CONFIGURATION_REPOSITORY } from '../../../ports/outbound/discovery-campaign-configuration-repository.port.js';
 import { MongoDatabaseClient } from '../../outbound/mongodb/mongo-database-client.js';
 import { MongoDiscoveryBackfillRunRepository } from '../../outbound/mongodb/mongo-discovery-backfill-run-repository.js';
@@ -30,6 +32,17 @@ import { HealthController } from './health.controller.js';
     {
       provide: DISCOVERY_CAMPAIGN_CONFIGURATION_REPOSITORY,
       useClass: MongoDiscoveryCampaignConfigurationRepository,
+    },
+    {
+      inject: [SystemClock, DISCOVERY_CAMPAIGN_CONFIGURATION_REPOSITORY],
+      provide: MANAGE_DISCOVERY_CONFIGURATIONS_USE_CASE,
+      useFactory: (
+        clock: SystemClock,
+        configurationRepository: MongoDiscoveryCampaignConfigurationRepository,
+      ): ManageDiscoveryConfigurationsService => new ManageDiscoveryConfigurationsService(
+        clock,
+        configurationRepository,
+      ),
     },
     MongoDiscoveryBackfillRunRepository,
     MongoDiscoveryOutputRepository,
