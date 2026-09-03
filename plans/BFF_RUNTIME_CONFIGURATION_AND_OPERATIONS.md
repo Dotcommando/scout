@@ -675,7 +675,7 @@ affiliation-catalogue revisions.
 
 ## Step 8 — Expose Qualification configuration CRUD through service and BFF APIs
 
-**Status:** Pending
+**Status:** In Progress
 
 ### Objective
 

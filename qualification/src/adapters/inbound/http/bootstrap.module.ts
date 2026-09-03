@@ -18,9 +18,10 @@ import { QualificationEnrichmentConfiguration } from '../configuration/qualifica
 import { QualificationProfileConfiguration } from '../configuration/qualification-profile-configuration.js';
 import { RabbitMqDiscoveredLeadConsumer } from '../rabbitmq/rabbitmq-discovered-lead-consumer.js';
 import { HealthController } from './health.controller.js';
+import { QualificationConfigurationController } from './qualification-configuration.controller.js';
 
 @Module({
-  controllers: [HealthController],
+  controllers: [HealthController, QualificationConfigurationController],
   providers: [
     QualificationRuntimeConfiguration,
     MongoQualificationConfiguration,

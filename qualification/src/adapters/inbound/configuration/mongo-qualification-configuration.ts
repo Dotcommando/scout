@@ -25,6 +25,11 @@ interface IQualificationConfigurationDocument {
   readonly updatedAt: Date;
 }
 
+export interface IQualificationConfigurationPage {
+  readonly items: readonly IQualificationConfigurationDocument[];
+  readonly total: number;
+}
+
 @Injectable()
 export class MongoQualificationConfiguration
   implements
@@ -67,6 +72,22 @@ export class MongoQualificationConfiguration
     }
 
     return profile;
+  }
+
+  public async getConfigurations(
+    offset: number,
+    limit: number,
+  ): Promise<IQualificationConfigurationPage> {
+    const [items, total] = await Promise.all([
+      this.collection.find({ lifecycle: QUALIFICATION_CONFIGURATION_LIFECYCLE.ACTIVE })
+        .sort({ campaignId: 1 })
+        .skip(offset)
+        .limit(limit)
+        .toArray(),
+      this.collection.countDocuments({ lifecycle: QUALIFICATION_CONFIGURATION_LIFECYCLE.ACTIVE }),
+    ]);
+
+    return { items, total };
   }
 
   public async onModuleInit(): Promise<void> {
