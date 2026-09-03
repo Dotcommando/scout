@@ -245,41 +245,26 @@ in this plan; their existing service contract remains the audit path.
 
 # Plan Steps
 
-## Step 1 — Persist local infrastructure and establish operation contracts
+## Step 1 — Persist MongoDB data in local Compose
 
 **Status:** Pending
 
 ### Objective
 
-Make the normal Compose path durable, introduce the BFF deployable unit, and
-define the versioned BFF-to-service transport contracts before business APIs
-are implemented.
+Make the normal Compose path durable before adding any new service state or
+operator commands.
 
 ### Observable result
 
 `docker compose up -d` starts MongoDB with data surviving `docker compose
-down` followed by `up -d` (but not `down -v`), RabbitMQ remains durable, and a
-healthy BFF can reach only documented service HTTP interfaces.
+down` followed by `up -d` (but not `down -v`); RabbitMQ remains durable.
 
 ### Implementation
 
 1. Add a named `mongodb_data` volume mounted at `/data/db`; retain the existing
    RabbitMQ volume. Document that `docker compose down -v` intentionally
    removes both volumes.
-2. Add a `bff` NestJS service with the repository's strict TypeScript, logging,
-   liveness/readiness, graceful shutdown, Dockerfile, dedicated runtime
-   configuration, and `BFF_PORT=3000` in both root `.env` files.
-3. Add service URLs and an explicit local CORS allow-list to BFF runtime
-   configuration. Bind browser-exposed ports to loopback in Compose or clearly
-   document equivalent local-only exposure. Do not add authentication yet.
-4. Define narrow, versioned HTTP request/response parsers for BFF-to-Discovery
-   and BFF-to-Qualification management, command, status, and result APIs.
-   `packages/contracts` may hold only those stable transport schemas and no
-   service domains or persistence documents.
-5. Add typed BFF outbound HTTP adapters with timeouts, error normalization,
-   correlation propagation, and safe diagnostics. BFF readiness depends on
-   the configured service readiness endpoints; liveness does not.
-6. Add an operations document explaining persisted volumes, data locations,
+2. Add an operations document explaining persisted volumes, data locations,
    startup, inspection, backup/restore expectations, and the local-only
    security boundary.
 
@@ -288,21 +273,61 @@ healthy BFF can reach only documented service HTTP interfaces.
 - Compose up, insert a controlled Mongo document, run `docker compose down`,
   start again, and prove the document remains. Verify `down -v` is the only
   documented removal mechanism.
-- Run BFF lint, typecheck, tests, and build; then verify all four service
-  readiness endpoints and BFF dependency reporting.
-- Confirm BFF tests prove it cannot create a MongoDB client for Discovery or
-  Qualification databases.
 - Run the Mandatory Architecture Gate and record its import/dependency review
   in this step's `Done` section.
 
 ### DoD
 
 - MongoDB persistence is explicit and documented.
+
+## Step 2 — Establish the BFF boundary and versioned operation contracts
+
+**Status:** Pending
+
+### Objective
+
+Introduce the independently deployable NestJS BFF and define the validated,
+versioned BFF-to-service HTTP contract before implementing service management
+or command behavior.
+
+### Observable result
+
+BFF is buildable, reports its own liveness/readiness, uses typed clients for
+Discovery and Qualification health only, and has no database client for either
+service database.
+
+### Implementation
+
+1. Add a `bff` NestJS service with the repository's strict TypeScript, logging,
+   liveness/readiness, graceful shutdown, Dockerfile, dedicated runtime
+   configuration, and `BFF_PORT=3000` in both root `.env` files.
+2. Add service URLs, timeouts, and an explicit local CORS allow-list to BFF
+   configuration. Bind browser-exposed ports to loopback in Compose or document
+   equivalent local-only exposure; do not add authentication yet.
+3. Define narrow, versioned request/response parsers for BFF-to-Discovery and
+   BFF-to-Qualification management, command, status, and result APIs.
+   `packages/contracts` contains only stable transport schemas, not domains or
+   persistence documents.
+4. Add typed BFF outbound HTTP adapters with correlation propagation, safe
+   error normalization, and bounded timeouts. BFF readiness depends on service
+   readiness; liveness does not.
+
+### Verification
+
+- Run BFF lint, typecheck, tests, and build; verify readiness against healthy
+  and unavailable Discovery/Qualification dependencies.
+- Confirm BFF tests prove it cannot create a MongoDB client for Discovery or
+  Qualification databases.
+- Run the Mandatory Architecture Gate with particular focus on BFF client
+  adapters and forbidden cross-service persistence access.
+
+### DoD
+
 - BFF is independently buildable/runnable and has no cross-service database
   access.
 - Browser-facing transport contracts are versioned and validated.
 
-## Step 2 — Replace Discovery file configuration with durable revisioned CRUD
+## Step 3 — Persist and migrate revisioned Discovery configuration
 
 **Status:** Pending
 
@@ -310,14 +335,12 @@ healthy BFF can reach only documented service HTTP interfaces.
 
 Move Discovery campaign configuration from the single YAML file to
 service-owned, validated, revisioned MongoDB records with a safe migration
-path and management API.
+path.
 
 ### Observable result
 
-Discovery can list all campaigns, create/update one draft, activate a
-validated revision, and batch-delete only safe inactive configuration records;
-each Discovery run records the exact configuration revision/content hash it
-used.
+Discovery can resolve one active immutable configuration after restart; each
+Discovery run records the exact configuration revision/content hash it used.
 
 ### Implementation
 
@@ -325,106 +348,166 @@ used.
    revision records, audit timestamps, content hash, source and scope identity
    invariants, and MongoDB uniqueness/selection indexes. Keep source identity
    deterministic and prohibit arbitrary browser-supplied provider endpoints.
-2. Add application inbound/outbound ports and use cases for list-all,
-   create-one, replace-one with expected revision, activate, batch-delete, and
-   resolve-active configuration. Map validation failures to typed errors.
-3. Implement MongoDB repositories and service-owned HTTP management
-   controllers using the versioned contract. Controllers are thin inbound
-   adapters that invoke application ports; do not put repositories, Mongo
-   types, configuration lifecycle rules, or Discovery business logic in them.
-4. Add a one-time, idempotent migration/seed from the current YAML configuration
+2. Add repositories and an application resolver for a known active immutable
+   revision. Map validation and missing-active-configuration failures to typed
+   errors without an HTTP management API yet.
+3. Add a one-time, idempotent migration/seed from the current YAML configuration
    with a recorded source revision. After migration, remove YAML as the
    runtime source; retain a documented sample fixture only if tests need it.
-5. Change Discovery work and outbox records to reference the selected immutable
+4. Change Discovery work and outbox records to reference the selected immutable
    revision. An active run must retain its original snapshot even if a newer
    revision is activated.
-6. Add a BFF facade for the Discovery configuration routes, preserving server
-   validation paths and batch-delete result details rather than synthesizing
-   a second model.
 
 ### Verification
 
 - Domain/application tests for validation, duplicate campaign IDs, scope
-  priority/identity errors, expected-revision conflicts, lifecycle transitions,
-  all-or-nothing batch deletion, migration idempotency, and restart recovery.
+  priority/identity errors, migration idempotency, and restart recovery.
 - MongoDB integration tests for revision/index concurrency and retained run
   configuration snapshots.
-- BFF contract tests for list pagination and transparent `404`/`409`/`422`
-  mapping.
 - Run the Mandatory Architecture Gate, including focused checks of the new
-  Discovery controllers, application ports, and MongoDB configuration adapter.
-- Run Discovery and BFF lint, typecheck, tests, build, and Compose startup.
+  Discovery application ports and MongoDB configuration adapter.
+- Run Discovery lint, typecheck, tests, build, and Compose startup.
 
 ### DoD
 
 - Discovery does not read mutable campaign YAML at runtime.
 - Every operational run is reproducible from a durable configuration revision.
-- CRUD semantics match one-create/one-update/all-read/many-delete requirements.
 
-## Step 3 — Add restart-safe Discovery commands, status, and daily startup
+## Step 4 — Expose Discovery configuration CRUD through service and BFF APIs
+
+**Status:** Pending
+
+### Objective
+
+Add the requested list-all, create-one, update-one, activation, and atomic
+batch-delete behavior over the durable Discovery configuration model.
+
+### Observable result
+
+The BFF can read all campaign configurations, create/update one draft with
+optimistic concurrency, activate one valid revision, and request a safe
+all-or-nothing batch deletion.
+
+### Implementation
+
+1. Add application inbound/outbound ports and use cases for list-all,
+   create-one, replace-one with expected revision, activate, and batch-delete.
+2. Implement thin Discovery HTTP controllers over those ports; controllers do
+   not contain configuration lifecycle rules, repositories, or Mongo types.
+3. Add the corresponding BFF facades, preserving validation paths and per-ID
+   batch-delete conflict details rather than creating a second business model.
+4. Reject active/referenced revisions for deletion atomically and retain every
+   revision used by a run for audit.
+
+### Verification
+
+- Test stale revision updates, lifecycle transitions, pagination, inactive and
+  referenced batch deletion, and transparent `404`/`409`/`422` BFF mapping.
+- Run the Mandatory Architecture Gate for Discovery controllers, application
+  ports, configuration adapters, and BFF clients.
+- Run Discovery/BFF lint, typecheck, tests, builds, and Compose startup.
+
+### DoD
+
+- CRUD semantics match one-create/one-update/all-read/many-delete requirements.
+- Configuration management reaches Discovery only through its HTTP adapter and
+  application ports.
+
+## Step 5 — Compose Discovery work and add durable daily startup
 
 **Status:** Pending
 
 ### Objective
 
 Compose Discovery's existing progress service into the normal runtime and add
-durable command/run state so automatic startup and manual requests cannot
-duplicate paid work or violate quotas.
+durable daily-start state so container startup cannot duplicate paid work.
 
 ### Observable result
 
 On application initialization after readiness dependencies are established,
 Discovery checks the configured business date and starts/resumes eligible work
-only when no daily automatic-start decision exists. The BFF can request a
-bounded manual run and read a complete, persisted run/status view.
+only when no daily automatic-start decision exists.
 
 ### Implementation
 
 1. Register the existing state, quota, provider, output, and progress
 dependencies plus the scheduled Discovery worker in the HTTP bootstrap, then
 verify no existing CLI-only object graph is accidentally reused unsafely.
-2. Introduce a durable Discovery command/run aggregate with trigger kind enum
-   (`AUTO_STARTUP`, `MANUAL`, and any required recovery kind), idempotency key,
-   selected configuration revision, scope/provider references, counters,
-   timestamps, terminal/retry state, and safe failure summary. Use atomic
-   claims/unique indexes for daily-start and command idempotency.
+2. Introduce a durable Discovery startup/run aggregate with `AUTO_STARTUP`
+   trigger kind, selected configuration revision, scope/provider references,
+   counters, timestamps, terminal/retry state, and safe failure summary. Use
+   atomic claims/unique indexes for the daily-start decision.
 3. Implement a startup coordinator using Nest lifecycle only after repository
    initialization. If an `OnModuleInit` hook cannot guarantee those dependencies
    are initialized, use `OnApplicationBootstrap` and document the reason; the
    observable behavior remains the requested startup check.
-4. Integrate the daily business timezone, daily quota, stale claims, pending
-   provider-run recovery, scope progression, scheduler ticks, and manual
-   `maximumProviderItems` override. Clamp or reject values outside the
-   campaign/global limits and record effective limits.
-5. Add Discovery HTTP command/status/history controllers and the corresponding
-   BFF facade. Discovery controllers remain thin inbound adapters over
-   application command/query ports; return `202` command resources, and make
-   status include meaningful state/counters rather than only a process
-   heartbeat.
-6. Emit structured logs and correlation IDs for accepted, duplicate, resumed,
-   quota-blocked, completed, and failed command transitions.
+4. Integrate the daily business timezone, quota, stale claims, pending
+   provider-run recovery, scope progression, and scheduler ticks. Record
+   effective limits and structured startup transition logs.
 
 ### Verification
 
 - Application/integration tests for first startup of a date, repeated same-day
   restart, two concurrent starts, midnight/timezone boundary, pending provider
-  run recovery, daily-quota exhaustion, invalid manual item count, duplicate
-  idempotency key, and configuration activation while a run is in progress.
+  run recovery, daily-quota exhaustion, and configuration activation while a
+  run is in progress.
 - End-to-end Compose test: start a controlled fixture campaign, restart
   Discovery, and prove no second provider start occurred while status remains
   truthful.
 - Run the Mandatory Architecture Gate, including Discovery startup/scheduler,
-  HTTP controllers, command use cases, and provider/RabbitMQ boundaries.
-- Run Discovery/BFF lint, typecheck, tests, integration tests, and builds.
+  application use cases, and provider/RabbitMQ boundaries.
+- Run Discovery lint, typecheck, tests, integration tests, and builds.
 
 ### DoD
 
 - The normal service runtime actually advances configured Discovery work.
 - Daily automatic startup is durable and cannot become duplicate work after a
   process/container/host restart.
-- Manual runs are bounded, observable, and idempotent.
 
-## Step 4 — Replace Qualification file configuration with revisioned CRUD
+## Step 6 — Add manual Discovery commands and status APIs
+
+**Status:** Pending
+
+### Objective
+
+Add the requested bounded manual Discovery run command, run history/detail,
+and campaign status through thin service controllers and the BFF.
+
+### Observable result
+
+A BFF client receives a durable `202` command resource for an active campaign,
+can poll its status, and can distinguish accepted, duplicate, quota-blocked,
+idle, resumed, and failed work without a misleading promise of exact Lead
+count.
+
+### Implementation
+
+1. Extend the durable run aggregate with `MANUAL` trigger kind, idempotency
+   key, requested/effective provider-item bounds, and command-level counters.
+2. Add application command/query ports that enforce active configuration,
+   daily/global quota, source enablement, stale claims, and a bounded
+   `maximumProviderItems` override.
+3. Add thin Discovery command/status/history controllers and BFF facades;
+   return `202` resources and expose scope/provider/counter/failure summaries.
+4. Log accepted, duplicate, resumed, quota-blocked, completed, and failed
+   transitions with correlation and command IDs.
+
+### Verification
+
+- Test invalid item bounds, duplicate idempotency keys including mismatched
+  payload reuse, quota exhaustion, already-running work, status counters, and
+  BFF error mapping.
+- Run the Mandatory Architecture Gate for controllers, command/query ports,
+  scheduler coordination, and BFF clients.
+- Run Discovery/BFF lint, typecheck, tests, integration tests, builds, and a
+  controlled Compose command/status flow.
+
+### DoD
+
+- Manual runs are bounded, observable, and idempotent.
+- Discovery status is an operation view, not merely a process heartbeat.
+
+## Step 7 — Persist and migrate revisioned Qualification configuration
 
 **Status:** Pending
 
@@ -432,14 +515,13 @@ verify no existing CLI-only object graph is accidentally reused unsafely.
 
 Move Qualification profile and enrichment configuration to Qualification-owned
 durable versioned records, preserving auditability of every decision and
-metric projection.
+metric projection before exposing CRUD.
 
 ### Observable result
 
-Qualification lists all configuration bundles, creates/updates one revision,
-activates it safely, and batch-deletes only safe inactive records. New work
-uses the active bundle; old decisions continue to resolve their original
-profile, enrichment, and affiliation-catalogue revisions.
+Qualification resolves an active durable configuration bundle after restart;
+old decisions continue to resolve their original profile, enrichment, and
+affiliation-catalogue revisions.
 
 ### Implementation
 
@@ -450,50 +532,85 @@ profile, enrichment, and affiliation-catalogue revisions.
    catalogue: implement its own versioned CRUD API if it is in scope for the
    visual UI; otherwise seed it once and reject attempts to edit it through a
    campaign bundle. Never overwrite a revision referenced by a decision.
-3. Add ports/use cases/repositories/controllers for list-all, create-one,
-   update-one with optimistic concurrency, activate, and atomic batch-delete.
-   Qualification controllers remain thin inbound adapters over these use cases;
-   replace runtime YAML loading with the active durable bundle resolver.
+3. Add repositories and an application resolver for a known active immutable
+   bundle; replace runtime YAML loading with that resolver without CRUD routes
+   in this step.
 4. Migrate existing YAML profile, enrichment, and catalogue data idempotently
    and record its stable content hashes. Preserve current defaults as a
    migration fact, not an invisible fallback.
 5. Persist selected configuration references on each execution, decision,
    qualified-output record, and enrichment snapshot as appropriate.
-6. Add BFF configuration facade routes and consistent error/pagination
-   mapping.
 
 ### Verification
 
-- Tests for invalid deterministic rules, stale updates, profile/catalogue
-  reference conflicts, profile activation, safe batch deletion, YAML migration,
-  and requalification after a new profile version.
+- Tests for invalid deterministic rules, profile/catalogue reference conflicts,
+  YAML migration, and active-bundle recovery.
 - MongoDB integration tests for immutable reference/history semantics and
   concurrent activation.
-- Run the Mandatory Architecture Gate, including the new Qualification
-  controllers, configuration use cases, and MongoDB/YAML migration adapters.
-- Run Qualification/BFF lint, typecheck, tests, integration tests, and builds.
+- Run the Mandatory Architecture Gate, including Qualification configuration
+  use cases and MongoDB/YAML migration adapters.
+- Run Qualification lint, typecheck, tests, integration tests, and builds.
 
 ### DoD
 
 - Qualification no longer obtains editable runtime policy from YAML files.
 - Decision and metric audit data identify immutable configuration revisions.
-- Batch CRUD is safe for records already referenced by processing history.
 
-## Step 5 — Add Qualification execution control, status, and qualified-Lead queries
+## Step 8 — Expose Qualification configuration CRUD through service and BFF APIs
 
 **Status:** Pending
 
 ### Objective
 
-Give the BFF enough service-owned Qualification commands and read models to
-show progress, retry/resume an individual Lead safely, and display qualified
-Leads with their auditable metrics.
+Add list-all, create-one, update-one, activation, and safe batch-delete APIs
+for Qualification configuration bundles and settle the global affiliation
+catalogue editing boundary.
 
 ### Observable result
 
-The BFF returns a coherent campaign/profile status, paginated qualified-Lead
-results, and a safe single-Lead execution resource without direct access to
-Discovery persistence.
+The BFF manages Qualification configuration revisions with optimistic
+concurrency while referenced decisions remain reproducible and immutable.
+
+### Implementation
+
+1. Add application ports/use cases for list-all, create-one, replace-one,
+   activate, and atomic batch-delete of configuration bundles.
+2. Decide and document the operator lifecycle of the global affiliation
+   catalogue: implement separate revisioned CRUD when visual editing is in
+   scope, or keep it seed-only and reject bundle-embedded edits.
+3. Add thin Qualification HTTP controllers and BFF facades. Controllers only
+   map contracts to application ports and never contain policy rules or Mongo
+   queries.
+4. Reject deletion of active/referenced revisions atomically and expose clear
+   per-ID conflict details.
+
+### Verification
+
+- Test stale updates, activation conflicts, pagination, all-or-nothing batch
+  deletion, catalogue-reference validation, and BFF HTTP error mapping.
+- Run the Mandatory Architecture Gate for Qualification controllers, use
+  cases, configuration repositories, and BFF clients.
+- Run Qualification/BFF lint, typecheck, tests, builds, and Compose startup.
+
+### DoD
+
+- Batch CRUD is safe for records already referenced by processing history.
+- Qualification configuration management reaches application logic only through
+  service-owned HTTP adapters and ports.
+
+## Step 9 — Add Qualification execution control and campaign status
+
+**Status:** Pending
+
+### Objective
+
+Give the BFF a service-owned command to retry/resume one Lead safely and a
+campaign/profile progress view with an explicit remaining-work denominator.
+
+### Observable result
+
+The BFF returns a coherent campaign/profile status and a safe single-Lead
+execution resource without direct access to Discovery persistence.
 
 ### Implementation
 
@@ -506,19 +623,13 @@ Discovery persistence.
    Qualification's inbox snapshot. Enforce campaign/profile lookup,
    idempotency, stale-claim handling, selected configuration revision, and
    no-duplicate qualified-output rules.
-3. Add read use cases/repository ports for campaign status, execution detail/
-   history, qualified Lead page, and qualified Lead detail. Keep Mongo query
-   documents inside adapters. Use an efficient server-side projection/join of
-   Qualification-owned decision and enrichment snapshot data only.
-4. Return an explicit metric array for the existing six metrics with kind,
-   availability, value when available, source context, evidence references,
-   profile/enrichment revision, and enrichment state. Preserve unavailable,
-   pending, and failed states; do not fake completed metrics.
-5. Add service HTTP controllers and BFF facades for all Qualification routes
-   in the contract direction. Enforce `offset`, `limit`, `total`, stable date
-   sort, campaign/profile filters, and safe error shaping in application query
-   use cases and adapters, not controller business logic.
-6. Ensure a manually requested execution is distinct from a raw message
+3. Add read use cases/repository ports for campaign status and execution detail/
+   history. Keep Mongo query documents inside adapters and define the `asOf`
+   snapshot and remaining-work calculation.
+4. Add thin service HTTP controllers and BFF facades for execution/status
+   routes. Keep count semantics in application query use cases and adapters,
+   not controllers.
+5. Ensure a manually requested execution is distinct from a raw message
    replay: it records operator trigger/correlation/idempotency context but
    remains compatible with at-least-once RabbitMQ delivery.
 
@@ -526,15 +637,12 @@ Discovery persistence.
 
 - Domain/application tests for all decision kinds, duplicate messages, manual
   request for an unknown Lead, completed Lead request, stale execution claim,
-  new profile re-evaluation, enrichment pending/failed/unavailable, and count
-  correctness.
-- MongoDB integration tests for deterministic descending pagination under
-  equal timestamps, total counts, indexes, profile filtering, and no
-  cross-campaign leakage.
-- End-to-end test from a discovered event through Qualification to BFF status
-  and paginated qualified Lead view.
+  new profile re-evaluation, and count correctness.
+- MongoDB integration tests for total counts, profile filtering, no
+  cross-campaign leakage, and status snapshot consistency.
+- End-to-end test from a discovered event through Qualification to BFF status.
 - Run the Mandatory Architecture Gate, including HTTP/message inbound adapters,
-  Qualification use cases, MongoDB read models, enrichment, and Actor Gateway
+  Qualification use cases, execution/status read models, and Actor Gateway
   client boundaries.
 - Run Qualification/BFF lint, typecheck, tests, integration tests, and builds.
 
@@ -543,10 +651,53 @@ Discovery persistence.
 - Status explains what is qualified and what remains, with a documented
   denominator and time snapshot.
 - Individual qualification requests are safe, idempotent, and service-owned.
+
+## Step 10 — Add paginated qualified-Lead and metric query APIs
+
+**Status:** Pending
+
+### Objective
+
+Expose Qualification-owned qualified Lead lists and details for the future UI,
+including the six existing auditable metrics and explicit enrichment state.
+
+### Observable result
+
+The BFF returns `qualified-leads` with `offset`, `limit`, `total`, and stable
+`createdAt DESC, leadId ASC` ordering, plus one-Lead detail without a
+cross-service database join.
+
+### Implementation
+
+1. Add application query ports and MongoDB adapter queries for a qualified Lead
+   page and detail, joining only Qualification-owned decision and enrichment
+   snapshot data.
+2. Return the Lead snapshot, decision reasons, profile/enrichment revisions,
+   timestamps, and all six metrics by enum kind with availability, value where
+   available, enrichment state, and allowed evidence references.
+3. Enforce bounded offset/limit, exact total, campaign/profile filtering,
+   stable descending date sort, and `asOf` metadata. Do not turn unavailable
+   or pending metrics into default values.
+4. Add thin Qualification controllers and BFF facades for the qualified list
+   and Lead detail; error shaping remains protocol-only.
+
+### Verification
+
+- Test available, pending, unavailable, and failed enrichment display; metric
+  evidence mapping; equal-timestamp pagination; total counts; profile filters;
+  and no cross-campaign leakage.
+- Run the Mandatory Architecture Gate for query use cases, MongoDB projections,
+  enrichment/Actor Gateway client boundaries, controllers, and BFF facades.
+- Run Qualification/BFF lint, typecheck, tests, integration tests, builds, and
+  an end-to-end qualified Lead page flow.
+
+### DoD
+
 - Qualified Lead results include all available existing metrics and explicit
   availability/evidence states.
+- Pagination and newest-first ordering are deterministic and documented.
 
-## Step 6 — Complete the local BFF edge and operational contract
+## Step 11 — Complete the local BFF edge and operational contract
 
 **Status:** Pending
 
