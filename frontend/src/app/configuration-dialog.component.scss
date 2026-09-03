@@ -1,0 +1,14 @@
+mat-dialog-content {
+  display: grid;
+  gap: 12px;
+  min-width: min(440px, 82vw);
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+.error {
+  color: #ffb4ab;
+  margin: 0;
+}

@@ -37,6 +37,11 @@ export class QualificationOperationsController {
     return this.request(HTTP_REQUEST_METHOD.GET, `/v1/qualification/qualified-leads?${new URLSearchParams({ campaignId, limit, offset, profileVersion }).toString()}`, correlationId);
   }
 
+  @Get('leads')
+  public async getLeads(@Query('campaignId') campaignId: string, @Query('profileVersion') profileVersion = '1', @Query('offset') offset = '0', @Query('limit') limit = '50', @Query('sortBy') sortBy = 'createdAt', @Query('sortDirection') sortDirection = 'desc', @Headers('x-correlation-id') correlationId?: string): Promise<unknown> {
+    return this.request(HTTP_REQUEST_METHOD.GET, '/v1/qualification/leads?' + new URLSearchParams({ campaignId, limit, offset, profileVersion, sortBy, sortDirection }).toString(), correlationId);
+  }
+
   @Get('leads/:leadId')
   public async getLead(@Param('leadId') leadId: string, @Query('campaignId') campaignId: string, @Query('profileVersion') profileVersion = '1', @Headers('x-correlation-id') correlationId?: string): Promise<unknown> {
     return this.request(HTTP_REQUEST_METHOD.GET, `/v1/qualification/leads/${encodeURIComponent(leadId)}?${new URLSearchParams({ campaignId, profileVersion }).toString()}`, correlationId);

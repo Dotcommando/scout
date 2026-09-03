@@ -79,23 +79,21 @@ calls BFF only; Discovery and Qualification do not become browser APIs.
   viewing.
 - A live event stream beyond short-lived command-state refreshes.
 
-## Decisions Needed Before Step 2
+## Resolved operator decisions
 
-1. Does Create new create a Discovery configuration, a Qualification
-   configuration, or a coordinated pair? Existing APIs require different
-   fields and independent immutable revisions, so one generic form cannot
-   safely invent missing values.
-2. For Discovery Run, should the UI submit the active configuration maximum
-   per-run limit, or let the operator choose a smaller bounded amount?
-3. Which actor-sourced card fields are useful beyond name, address, website,
-   phone, internal Lead ID, source kind, external source ID, and timestamps?
-   The normalized model currently contains these fields.
+1. Create new is stage-specific: Discovery creates a Discovery configuration
+   and Qualification creates an independent Qualification configuration.
+2. Run submits the selected active configuration maximum per-run limit; the
+   UI does not let an operator exceed or independently set a provider budget.
+3. Lead cards show the normalized name, address, website, phone, internal Lead
+   ID, source kind, external source ID, and timestamps. No raw actor fields
+   are exposed in this increment.
 
 # Plan steps
 
 ## Step 1 - Reconcile UI contracts and the active plan
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -134,9 +132,15 @@ one unambiguous request/response specification for each Lead collection.
 - The contract is ready for separate Discovery, Qualification, and BFF work.
 - The resolved UX decisions are recorded before UI implementation begins.
 
+### Done
+
+Recorded stage-specific creation, configuration-bound Run limits, normalized
+Lead card fields, deterministic paging/sorting, metric null-last semantics,
+and owner/BFF collection routes in the public API document.
+
 ## Step 2 - Add the Discovery campaign Lead read model
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -174,9 +178,15 @@ total and supports Date added and Name order.
 - Discovery returns a truthful page of campaign Leads without cross-service or
   direct browser persistence access.
 
+### Done
+
+Added the Discovery query port, application service, MongoDB read model and
+HTTP endpoint. Campaign membership is read from Discovery outputs, with
+validated pagination and date/name ordering backed by owner-side indexes.
+
 ## Step 3 - Proxy Discovery Lead pages through BFF
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -206,9 +216,14 @@ sorting semantics, correlation ID, and safe owner errors.
 
 - Browser clients can obtain Discovery Lead pages only through BFF.
 
+### Done
+
+Added the BFF Discovery collection route with correlation propagation and
+owner response/status preservation. The route is documented under api/v1.
+
 ## Step 4 - Add the Qualification full Lead read model and metric ordering
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -254,9 +269,16 @@ explicit metric availability.
 - Qualification returns a complete, auditable page without an implicit
   qualified-only filter or incorrect metric semantics.
 
+### Done
+
+Extended the Qualification read model and controller with full inbox pages,
+decision/enrichment state, six metric orderings, stable ties, and unavailable
+values always after available values. Inbox receipt time is the date-added
+field and owner-side indexes support the read collections.
+
 ## Step 5 - Proxy Qualification Lead pages through BFF
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -286,9 +308,15 @@ singular detail path and all owner pagination/sort/error semantics.
 
 - The complete Qualification list is reachable exclusively via BFF.
 
+### Done
+
+Added the BFF Qualification collection proxy before the existing singular
+detail route, retaining profile, pagination, ordering, errors, and correlation
+semantics.
+
 ## Step 6 - Bootstrap the Angular console and deployment path
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -325,9 +353,17 @@ BFF through a configurable base URL only.
 - The console is reproducible from exact dependencies and reaches BFF through
   documented local runtime configuration.
 
+### Done
+
+Created the frontend workspace with strict Angular, Material, SCSS, unit-test,
+and ESLint configuration, exact package and lock versions, a dark theme,
+runtime-config.js BFF base URL, and the local Compose service. Angular 21.2.13
+was pinned because the newer Angular 22 package required a TypeScript 6 range
+without a compatible stable TypeScript release.
+
 ## Step 7 - Add the frontend BFF client and page primitives
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -362,9 +398,15 @@ transport concerns consistently.
 - Feature components need no ad hoc fetch logic, unchecked JSON, or duplicate
   pagination/error handling.
 
+### Done
+
+Implemented a single BFF client with boundary validation, generated correlation
+IDs, page parsing, error normalization, and shared loading, retry, pagination,
+and command-pending presentation state.
+
 ## Step 8 - Build configuration selection and creation
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -405,9 +447,15 @@ dialog for the agreed configuration type.
 - An operator can select and create the agreed configuration type without
   direct API access or loss of context.
 
+### Done
+
+Implemented newest-first stage configuration rails, country-code markers,
+fixed Create new actions, and stage-specific creation dialogs. A newly created
+configuration is reloaded and selected.
+
 ## Step 9 - Deliver responsive shell, tabs, and tab persistence
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -445,9 +493,15 @@ at all four viewport ranges.
 - The console begins dark, restores the selected tab safely, and works at all
   four documented breakpoints.
 
+### Done
+
+Implemented the dark shell and four responsive ranges, with safe namespaced
+localStorage tab persistence and Discovery fallback when storage is absent or
+invalid.
+
 ## Step 10 - Implement Discovery list, pagination, and Run
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -490,9 +544,15 @@ machine IDs.
 - Discovery results and commands are accurate, accessible, and usable by
   keyboard, mouse, and touch.
 
+### Done
+
+Implemented 50-item server pages, top/bottom pagination, date/name sorting,
+empty and populated Run controls, bounded configuration-derived Run requests,
+and readable versus machine-detail Lead cards.
+
 ## Step 11 - Implement Qualification list, statuses, and Requalify
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -542,9 +602,15 @@ centered text: There are nothing yet.
 - Operators see every received Lead, its qualification state, and can safely
   request reevaluation.
 
+### Done
+
+Implemented full Qualification pages, all six metric sort choices, clear
+qualified/rejected/pending badges with check/cross markers, muted but active
+non-qualified cards, Requalify commands, and the exact centered empty message.
+
 ## Step 12 - Verify, document, and close the plan
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -579,6 +645,16 @@ documentation accurately states setup and limitations.
 
 - The delivered console is reproducible, documented, responsive, and verified
   against actual BFF contracts.
+
+### Done
+
+Ran lint, strict typecheck, tests, and production builds for Discovery,
+Qualification, BFF, and frontend; validated Compose configuration; built all
+affected images; and received HTTP 200 from the temporary frontend container.
+No real actor was called: the configured automatic Discovery batch is 100,
+which exceeds the approved ten-record actor limit. API and UI behavior was
+therefore verified through service tests and the controlled frontend smoke
+path without consuming provider quota.
 
 # Plan completion criteria
 

@@ -54,7 +54,7 @@ export class MongoDiscoveryCampaignConfigurationRepository
     const [documents, total] = await Promise.all([
       this.collection
         .find({})
-        .sort({ campaignId: 1, version: 1 })
+        .sort({ createdAt: -1, campaignId: 1, version: 1 })
         .skip(offset)
         .limit(limit)
         .toArray(),

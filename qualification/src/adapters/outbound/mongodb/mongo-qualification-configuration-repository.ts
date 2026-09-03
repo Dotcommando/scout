@@ -91,7 +91,7 @@ export class MongoQualificationConfigurationRepository implements IQualification
 
   public async findConfigurations(offset: number, limit: number): Promise<IQualificationConfigurationPage> {
     const [items, total] = await Promise.all([
-      this.collection.find({}).sort({ campaignId: 1, version: 1 }).skip(offset).limit(limit).toArray(),
+      this.collection.find({}).sort({ createdAt: -1, campaignId: 1, version: 1 }).skip(offset).limit(limit).toArray(),
       this.collection.countDocuments(),
     ]);
 

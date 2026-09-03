@@ -8,6 +8,7 @@ import { LocalQualificationManagementClient } from '../../outbound/http/local-qu
 import { LocalServiceReadinessClient } from '../../outbound/http/local-service-readiness-client.js';
 import { BffRuntimeConfiguration } from '../bootstrap/bff-runtime-configuration.js';
 import { DiscoveryConfigurationController } from './discovery-configuration.controller.js';
+import { DiscoveryLeadsController } from './discovery-leads.controller.js';
 import { DiscoveryRunController } from './discovery-run.controller.js';
 import { HealthController } from './health.controller.js';
 import { QualificationConfigurationController } from './qualification-configuration.controller.js';
@@ -16,6 +17,7 @@ import { QualificationOperationsController } from './qualification-operations.co
 @Module({
   controllers: [
     DiscoveryConfigurationController,
+    DiscoveryLeadsController,
     DiscoveryRunController,
     HealthController,
     QualificationConfigurationController,

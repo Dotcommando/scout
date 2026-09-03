@@ -32,11 +32,21 @@ import {
   GET_DISCOVERY_CONFIGURATIONS_USE_CASE,
 } from '../../../ports/inbound/get-discovery-configurations.use-case.js';
 import type {
+  IGetDiscoveryLeadsUseCase,
+} from '../../../ports/inbound/get-discovery-leads.use-case.js';
+import {
+  GET_DISCOVERY_LEADS_USE_CASE,
+} from '../../../ports/inbound/get-discovery-leads.use-case.js';
+import type {
   IManageDiscoveryConfigurationsUseCase,
 } from '../../../ports/inbound/manage-discovery-configurations.use-case.js';
 import {
   MANAGE_DISCOVERY_CONFIGURATIONS_USE_CASE,
 } from '../../../ports/inbound/manage-discovery-configurations.use-case.js';
+import {
+  DISCOVERY_LEAD_SORT_BY,
+  LEAD_SORT_DIRECTION,
+} from '../../../ports/outbound/discovery-lead-read-model.port.js';
 import type { IDiscoveryOperationRun } from '../../../ports/outbound/discovery-operation-run-repository.port.js';
 import { MongoDiscoveryOperationRunRepository } from '../../outbound/mongodb/mongo-discovery-operation-run-repository.js';
 import { MongoDiscoveryCampaignConfiguration } from '../configuration/mongo-discovery-campaign-configuration.js';
@@ -48,6 +58,8 @@ export class DiscoveryConfigurationController {
     private readonly getDiscoveryConfigurationsUseCase: IGetDiscoveryConfigurationsUseCase,
     @Inject(MANAGE_DISCOVERY_CONFIGURATIONS_USE_CASE)
     private readonly manageDiscoveryConfigurationsUseCase: IManageDiscoveryConfigurationsUseCase,
+    @Inject(GET_DISCOVERY_LEADS_USE_CASE)
+    private readonly getDiscoveryLeadsUseCase: IGetDiscoveryLeadsUseCase,
     private readonly requestDiscoveryRunService: RequestDiscoveryRunService,
     private readonly operationRunRepository: MongoDiscoveryOperationRunRepository,
     private readonly campaignConfiguration: MongoDiscoveryCampaignConfiguration,
@@ -61,6 +73,23 @@ export class DiscoveryConfigurationController {
     return this.handleRequest(() => this.getDiscoveryConfigurationsUseCase.getConfigurations(
       Number(offsetValue),
       Number(limitValue),
+    ));
+  }
+
+  @Get('leads')
+  public getLeads(
+    @Query('campaignId') campaignId: string,
+    @Query('offset') offset = '0',
+    @Query('limit') limit = '50',
+    @Query('sortBy') sortBy = DISCOVERY_LEAD_SORT_BY.CREATED_AT,
+    @Query('sortDirection') sortDirection = LEAD_SORT_DIRECTION.DESC,
+  ): Promise<unknown> {
+    return this.handleRequest(() => this.getDiscoveryLeadsUseCase.getLeads(
+      readString(campaignId, 'campaignId'),
+      readNonNegativeInteger(offset, 'offset'),
+      readPositiveIntegerString(limit, 'limit'),
+      readDiscoveryLeadSortBy(sortBy),
+      readLeadSortDirection(sortDirection),
     ));
   }
 
@@ -265,6 +294,42 @@ function readPositiveInteger(value: unknown, fieldPath: string): number {
   }
 
   return value;
+}
+
+function readNonNegativeInteger(value: string, fieldPath: string): number {
+  const parsed = Number(value);
+
+  if (!Number.isSafeInteger(parsed) || parsed < 0) {
+    throw new UnprocessableEntityException({ message: fieldPath + ' must be a non-negative safe integer' });
+  }
+
+  return parsed;
+}
+
+function readPositiveIntegerString(value: string, fieldPath: string): number {
+  const parsed = Number(value);
+
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new UnprocessableEntityException({ message: fieldPath + ' must be a positive safe integer' });
+  }
+
+  return parsed;
+}
+
+function readDiscoveryLeadSortBy(value: string): DISCOVERY_LEAD_SORT_BY {
+  if (value === DISCOVERY_LEAD_SORT_BY.CREATED_AT || value === DISCOVERY_LEAD_SORT_BY.NAME) {
+    return value;
+  }
+
+  throw new UnprocessableEntityException({ message: 'sortBy must be a supported Discovery Lead sort field' });
+}
+
+function readLeadSortDirection(value: string): LEAD_SORT_DIRECTION {
+  if (value === LEAD_SORT_DIRECTION.ASC || value === LEAD_SORT_DIRECTION.DESC) {
+    return value;
+  }
+
+  throw new UnprocessableEntityException({ message: 'sortDirection must be asc or desc' });
 }
 
 function readSourceKind(value: unknown): DISCOVERY_SOURCE_KIND {

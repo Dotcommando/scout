@@ -5,6 +5,12 @@ It is deliberately unauthenticated and must not be exposed outside a trusted
 development machine. Service, MongoDB, and RabbitMQ ports exist for local
 debugging only and bypass the future authorization boundary.
 
+The local Angular admin console is available at http://127.0.0.1:4200 after
+docker compose up --build. It calls BFF only; BFF CORS explicitly allows its
+two loopback origins. Its BFF base URL is read at browser startup from
+`frontend/public/runtime-config.js`; change that file when the trusted local
+BFF origin changes, then rebuild the frontend image.
+
 All application routes use `/api/v1`. Supply `X-Correlation-Id` on an
 operator request when tracing it across services; the BFF generates one when
 it is absent. List responses use `items`, `offset`, `limit`, and `total`.
@@ -44,6 +50,22 @@ Each Lead view returns an explicit enrichment state; a missing snapshot is
 ```powershell
 Invoke-RestMethod 'http://127.0.0.1:3000/api/v1/qualification/status?campaignId=europe-gb-ie&profileVersion=1'
 ```
+
+## Lead result pages
+
+GET /api/v1/discovery/leads accepts campaignId, offset, limit, sortBy, and
+sortDirection. It returns Discovery-owned campaign Lead membership and
+supports createdAt and name sorting.
+
+GET /api/v1/qualification/leads accepts campaignId, profileVersion, offset,
+limit, sortBy, and sortDirection. It returns every Qualification inbox Lead,
+not only qualified Leads. It supports createdAt, name, publicAdr, reviewVolume,
+marketPricePosition, monetisableAssetCount, fullServiceHotelSignal, and
+marketValueProxy. Unavailable metrics sort after available values in both
+directions.
+
+Both page responses contain items, offset, limit, and total. The default order
+is date added descending with leadId as a stable tie-breaker.
 
 ## Health
 

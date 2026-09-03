@@ -19,11 +19,11 @@ Discovery -- AMQP discovered-lead event --> Qualification
 Discovery ----> Actor Gateway ----> Apify actors
 Qualification -> Actor Gateway
 Actor Gateway -> scout_actor_gateway (request cache, runs, archives, field catalogue)
-Browser (local) -> BFF -> Discovery and Qualification HTTP APIs
+Browser (local) -> Angular admin console -> BFF -> Discovery and Qualification HTTP APIs
 ```
 
-Docker Compose defines six containers: `mongodb`, `rabbitmq`, `actor-gateway`,
-`discovery`, `qualification`, and `bff`. MongoDB data and RabbitMQ data use
+Docker Compose defines seven containers: `mongodb`, `rabbitmq`, `actor-gateway`,
+`discovery`, `qualification`, `bff`, and `frontend`. MongoDB data and RabbitMQ data use
 named volumes and survive ordinary Compose recreation. MongoDB contains one database per service:
 `scout_actor_gateway`, `scout_discovery`, and `scout_qualification`. No service
 reads or writes another service's database.
@@ -157,7 +157,23 @@ data. It forwards versioned local HTTP requests to Discovery and Qualification,
 propagates `X-Correlation-Id`, provides local CORS, and reports liveness
 separately from dependency readiness. Its documented surface is
 `docs/BFF_LOCAL_API.md`; it includes Qualification configuration CRUD,
-execution commands, status, and qualified-Lead query routes under `/api/v1`.
+execution commands, status, and all Discovery and Qualification Lead query
+routes under `/api/v1`. The collection routes
+`/api/v1/discovery/leads` and `/api/v1/qualification/leads` accept bounded
+offset/limit paging and owner-validated sorting, returning `items`, `offset`,
+`limit`, and `total`. Qualification pages include every inbox Lead, not only
+qualified output, with decision and enrichment state.
+
+## Frontend admin console
+
+The Angular Material console runs locally at `127.0.0.1:4200`. It is dark by
+default, uses four responsive ranges, and persists the selected Discovery or
+Qualification tab in local storage. Its only service origin is the BFF base
+URL read from `frontend/public/runtime-config.js`; local Compose CORS allows
+the two loopback console origins. The console displays stage-specific
+configuration lists and creation dialogs, paginated Lead cards, owner-side
+sorting, Discovery Run actions, and Qualification Requalify actions. It never
+contacts service, persistence, actor, or provider endpoints directly.
 
 ## Deferred Operational Work
 

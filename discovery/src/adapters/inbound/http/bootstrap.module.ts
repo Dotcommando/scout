@@ -5,18 +5,22 @@ import { DiscoveryBackfillService } from '../../../app/discovery/discovery-backf
 import { DiscoveryOutputPublisherService } from '../../../app/discovery/discovery-output-publisher.service.js';
 import { DiscoveryProgressService } from '../../../app/discovery/discovery-progress.service.js';
 import { GetDiscoveryConfigurationsService } from '../../../app/discovery/get-discovery-configurations.service.js';
+import { GetDiscoveryLeadsService } from '../../../app/discovery/get-discovery-leads.service.js';
 import { ManageDiscoveryConfigurationsService } from '../../../app/discovery/manage-discovery-configurations.service.js';
 import { RequestDiscoveryRunService } from '../../../app/discovery/request-discovery-run.service.js';
 import { GET_DISCOVERY_CONFIGURATIONS_USE_CASE } from '../../../ports/inbound/get-discovery-configurations.use-case.js';
+import { GET_DISCOVERY_LEADS_USE_CASE } from '../../../ports/inbound/get-discovery-leads.use-case.js';
 import { MANAGE_DISCOVERY_CONFIGURATIONS_USE_CASE } from '../../../ports/inbound/manage-discovery-configurations.use-case.js';
 import { DISCOVERY_CAMPAIGN_CONFIGURATION_REPOSITORY } from '../../../ports/outbound/discovery-campaign-configuration-repository.port.js';
 import { DISCOVERY_DAILY_START_REPOSITORY } from '../../../ports/outbound/discovery-daily-start-repository.port.js';
+import { DISCOVERY_LEAD_READ_MODEL } from '../../../ports/outbound/discovery-lead-read-model.port.js';
 import { ActorGatewayClient } from '../../outbound/actor-gateway/actor-gateway-client.js';
 import { ActorGatewayGoogleMapsProviderAdapter } from '../../outbound/actor-gateway/actor-gateway-google-maps-provider-adapter.js';
 import { MongoDatabaseClient } from '../../outbound/mongodb/mongo-database-client.js';
 import { MongoDiscoveryBackfillRunRepository } from '../../outbound/mongodb/mongo-discovery-backfill-run-repository.js';
 import { MongoDiscoveryCampaignConfigurationRepository } from '../../outbound/mongodb/mongo-discovery-campaign-configuration-repository.js';
 import { MongoDiscoveryDailyStartRepository } from '../../outbound/mongodb/mongo-discovery-daily-start-repository.js';
+import { MongoDiscoveryLeadReadModel } from '../../outbound/mongodb/mongo-discovery-lead-read-model.js';
 import { MongoDiscoveryOperationRunRepository } from '../../outbound/mongodb/mongo-discovery-operation-run-repository.js';
 import { MongoDiscoveryOutputRepository } from '../../outbound/mongodb/mongo-discovery-output-repository.js';
 import { MongoDiscoveryStateRepository } from '../../outbound/mongodb/mongo-discovery-state-repository.js';
@@ -57,6 +61,7 @@ import { HealthController } from './health.controller.js';
     },
     MongoDiscoveryBackfillRunRepository,
     MongoDiscoveryDailyStartRepository,
+    MongoDiscoveryLeadReadModel,
     MongoDiscoveryOutputRepository,
     MongoDiscoveryOperationRunRepository,
     MongoDiscoveryStateRepository,
@@ -106,6 +111,17 @@ import { HealthController } from './health.controller.js';
       ): GetDiscoveryConfigurationsService => new GetDiscoveryConfigurationsService(
         configurationRepository,
       ),
+    },
+    {
+      provide: DISCOVERY_LEAD_READ_MODEL,
+      useExisting: MongoDiscoveryLeadReadModel,
+    },
+    {
+      inject: [DISCOVERY_LEAD_READ_MODEL],
+      provide: GET_DISCOVERY_LEADS_USE_CASE,
+      useFactory: (
+        readModel: MongoDiscoveryLeadReadModel,
+      ): GetDiscoveryLeadsService => new GetDiscoveryLeadsService(readModel),
     },
     {
       inject: [

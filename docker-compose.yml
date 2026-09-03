@@ -118,6 +118,16 @@ services:
       timeout: 5s
       retries: 12
 
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      bff:
+        condition: service_started
+    ports:
+      - '127.0.0.1:${FRONTEND_PORT}:4200'
+
 volumes:
   mongodb_data:
   rabbitmq_data:

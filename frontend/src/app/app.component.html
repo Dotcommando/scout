@@ -1,0 +1,117 @@
+<main>
+  <header class="top-bar">
+    <div class="brand">Scout <span>admin</span></div>
+    <nav aria-label="Stages" class="stage-tabs">
+      <button [class.active]="activeTab() === tabs.DISCOVERY" (click)="selectTab(tabs.DISCOVERY)" mat-button>Discovery</button>
+      <button [class.active]="activeTab() === tabs.QUALIFICATION" (click)="selectTab(tabs.QUALIFICATION)" mat-button>Qualification</button>
+    </nav>
+  </header>
+
+  <section class="workspace">
+    <aside class="config-panel">
+      <div class="config-title">Configurations</div>
+      <div class="config-list">
+        @for (configuration of configurations(); track configuration.campaignId) {
+          <button [class.selected]="selectedCampaignId() === configuration.campaignId" (click)="selectCampaign(configuration.campaignId)" class="configuration" type="button">
+            <span class="scope-codes">
+              @for (scope of configuration.scopes; track scope.id) {
+                <span>{{ scopeCode(scope.id) }}</span>
+              } @empty {
+                <span>--</span>
+              }
+            </span>
+            <span class="campaign">{{ configuration.campaignId }}</span>
+            <small>v{{ configuration.version }} · {{ configuration.createdAt | date:'mediumDate' }}</small>
+          </button>
+        } @empty {
+          <p class="subdued">No configurations yet.</p>
+        }
+      </div>
+      <button (click)="openCreateDialog()" class="create-button" color="primary" mat-flat-button>Create new</button>
+    </aside>
+
+    <section class="results">
+      <div class="results-header">
+        <div>
+          <p class="eyebrow">{{ activeTab() }}</p>
+          <h1>{{ selectedCampaignId() || 'Select a configuration' }}</h1>
+        </div>
+        <div class="sort-controls">
+          <mat-select [(ngModel)]="sortBy" (selectionChange)="resetAndLoad()" aria-label="Sort records">
+            @for (option of sortOptions(); track option.value) {
+              <mat-option [value]="option.value">{{ option.label }}</mat-option>
+            }
+          </mat-select>
+          <button (click)="toggleDirection()" mat-button>{{ sortDirection() === directions.DESC ? 'Newest / high first' : 'Oldest / low first' }}</button>
+        </div>
+      </div>
+
+      @if (selectedCampaignId() !== '') {
+        <div class="pagination top">
+          <span>{{ pageLabel() }}</span>
+          <span class="pager-buttons">
+            <button [disabled]="offset() === 0 || loading()" (click)="previousPage()" mat-button>Previous</button>
+            <button [disabled]="offset() + 50 >= currentTotal() || loading()" (click)="nextPage()" mat-button>Next</button>
+          </span>
+          @if (activeTab() === tabs.DISCOVERY && discoveryLeads().length > 0) {
+            <button [disabled]="commandPending()" (click)="runDiscovery()" class="run-small" color="primary" mat-flat-button>Run</button>
+          }
+        </div>
+      }
+
+      @if (loading()) {
+        <div class="center-state"><mat-spinner diameter="36"></mat-spinner></div>
+      } @else if (error() !== '') {
+        <div class="center-state"><p>{{ error() }}</p><button (click)="loadResults()" mat-stroked-button>Retry</button></div>
+      } @else if (activeTab() === tabs.DISCOVERY && selectedCampaignId() !== '' && discoveryLeads().length === 0) {
+        <div class="center-state"><button [disabled]="commandPending()" (click)="runDiscovery()" color="primary" mat-flat-button>Run</button></div>
+      } @else if (activeTab() === tabs.QUALIFICATION && selectedCampaignId() !== '' && qualificationLeads().length === 0) {
+        <div class="center-state"><p>There are nothing yet</p></div>
+      } @else {
+        <div class="lead-list">
+          @if (activeTab() === tabs.DISCOVERY) {
+            @for (lead of discoveryLeads(); track lead.leadId) {
+              <mat-card class="lead-card">
+                <mat-card-content>
+                  <h3>{{ lead.name }}</h3>
+                  <p class="details">{{ lead.address || 'Address unavailable' }}</p>
+                  @if (lead.websiteUrl) { <a [href]="lead.websiteUrl" target="_blank">Website</a> }
+                  @if (lead.phoneNumber) { <a [href]="'tel:' + lead.phoneNumber">{{ lead.phoneNumber }}</a> }
+                  <p class="machine">Lead ID {{ lead.leadId }} · {{ lead.sourceKind }} · {{ lead.externalId }} · {{ lead.createdAt | date:'medium' }}</p>
+                </mat-card-content>
+              </mat-card>
+            }
+          } @else {
+            @for (item of qualificationLeads(); track item.lead.leadId) {
+              <mat-card [ngClass]="{ muted: qualificationStatus(item) !== 'qualified' }" class="lead-card">
+                <mat-card-content>
+                  <div class="card-topline">
+                    <span [ngClass]="'status-' + qualificationStatus(item)" class="status">{{ qualificationStatusIcon(item) }} {{ qualificationStatus(item) }}</span>
+                    <button [disabled]="commandPending()" (click)="requalify(item.lead.leadId)" mat-stroked-button>Requalify</button>
+                  </div>
+                  <h3>{{ item.lead.name }}</h3>
+                  <p class="details">{{ item.lead.address || 'Address unavailable' }}</p>
+                  <p class="metrics">{{ metricSummary(item) }}</p>
+                  <p class="machine">Lead ID {{ item.lead.leadId }} · {{ item.lead.sourceKind }} · {{ item.lead.externalId }} · {{ item.createdAt | date:'medium' }}</p>
+                </mat-card-content>
+              </mat-card>
+            }
+          }
+        </div>
+      }
+
+      @if (selectedCampaignId() !== '') {
+        <div class="pagination bottom">
+          <span>{{ pageLabel() }}</span>
+          <span class="pager-buttons">
+            <button [disabled]="offset() === 0 || loading()" (click)="previousPage()" mat-button>Previous</button>
+            <button [disabled]="offset() + 50 >= currentTotal() || loading()" (click)="nextPage()" mat-button>Next</button>
+          </span>
+          @if (activeTab() === tabs.DISCOVERY && discoveryLeads().length > 0) {
+            <button [disabled]="commandPending()" (click)="runDiscovery()" class="run-small" color="primary" mat-flat-button>Run</button>
+          }
+        </div>
+      }
+    </section>
+  </section>
+</main>

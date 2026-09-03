@@ -1,6 +1,18 @@
-import { IGetQualificationOperationsUseCase, IQualificationExecutionPage, IQualificationStatusView, IQualifiedLeadPage } from '../../ports/inbound/get-qualification-operations.use-case.js';
+import {
+  IGetQualificationOperationsUseCase,
+  IQualificationExecutionPage,
+  IQualificationLeadListPage,
+  IQualificationStatusView,
+  IQualifiedLeadPage,
+} from '../../ports/inbound/get-qualification-operations.use-case.js';
 import { IClockPort } from '../../ports/outbound/clock.port.js';
-import { IQualificationExecutionView, IQualificationLeadView, IQualificationReadModelPort } from '../../ports/outbound/qualification-read-model.port.js';
+import {
+  IQualificationExecutionView,
+  IQualificationLeadView,
+  IQualificationReadModelPort,
+  QUALIFICATION_LEAD_SORT_BY,
+  QUALIFICATION_LEAD_SORT_DIRECTION,
+} from '../../ports/outbound/qualification-read-model.port.js';
 
 const MAXIMUM_PAGE_LIMIT = 100;
 
@@ -13,6 +25,27 @@ export class GetQualificationOperationsService implements IGetQualificationOpera
 
   public getLead(campaignId: string, leadId: string, profileVersion: number): Promise<IQualificationLeadView | undefined> {
     return this.readModel.findLead(campaignId, leadId, profileVersion);
+  }
+
+  public async getLeads(
+    campaignId: string,
+    profileVersion: number,
+    offset: number,
+    limit: number,
+    sortBy: QUALIFICATION_LEAD_SORT_BY,
+    sortDirection: QUALIFICATION_LEAD_SORT_DIRECTION,
+  ): Promise<IQualificationLeadListPage> {
+    validatePage(offset, limit);
+    const page = await this.readModel.listLeads({
+      campaignId,
+      limit,
+      offset,
+      profileVersion,
+      sortBy,
+      sortDirection,
+    });
+
+    return { ...page, limit, offset };
   }
 
   public async getQualifiedLeads(campaignId: string, profileVersion: number, offset: number, limit: number): Promise<IQualifiedLeadPage> {

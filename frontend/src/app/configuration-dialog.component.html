@@ -1,0 +1,24 @@
+<h2 mat-dialog-title>Create {{ data.tab === tabs.DISCOVERY ? 'Discovery' : 'Qualification' }} configuration</h2>
+<mat-dialog-content>
+  <mat-form-field appearance="outline">
+    <mat-label>Campaign ID</mat-label>
+    <input [(ngModel)]="campaignId" matInput required>
+  </mat-form-field>
+  <mat-form-field appearance="outline">
+    <mat-label>{{ data.tab === tabs.DISCOVERY ? 'Actor ID' : 'Profile ID' }}</mat-label>
+    <input [(ngModel)]="primaryId" matInput required>
+  </mat-form-field>
+  <mat-form-field appearance="outline">
+    <mat-label>{{ data.tab === tabs.DISCOVERY ? 'Countries / scopes, one code per line' : 'Catalog revision' }}</mat-label>
+    <textarea [(ngModel)]="secondaryValue" matInput required rows="4"></textarea>
+  </mat-form-field>
+  @if (error() !== '') {
+    <p class="error">{{ error() }}</p>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button [disabled]="saving()" mat-button mat-dialog-close>Cancel</button>
+  <button [disabled]="saving() || campaignId.trim() === '' || primaryId.trim() === '' || secondaryValue.trim() === ''" (click)="save()" color="primary" mat-flat-button>
+    {{ saving() ? 'Creating…' : 'Create' }}
+  </button>
+</mat-dialog-actions>
