@@ -8,6 +8,8 @@ services:
       retries: 12
     ports:
       - '${MONGODB_PORT}:27017'
+    volumes:
+      - mongodb_data:/data/db
 
   rabbitmq:
     image: rabbitmq:4.1-alpine
@@ -93,4 +95,5 @@ services:
       - ./config/qualification:/workspace/config/qualification:ro
 
 volumes:
+  mongodb_data:
   rabbitmq_data:

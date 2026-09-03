@@ -4,8 +4,37 @@
 
 Start the local stack with `docker compose up -d --build`. Stop it with
 `docker compose stop`; this sends Docker's normal termination signal and keeps
-MongoDB and RabbitMQ persistent state intact. Do not delete MongoDB or RabbitMQ
-volumes for ordinary recovery.
+MongoDB and RabbitMQ persistent state intact. `docker compose down` removes
+containers and networks but retains the named `mongodb_data` and
+`rabbitmq_data` volumes. `docker compose down -v` intentionally removes both
+volumes and all local service data; use it only when an empty environment is
+required.
+
+## Persistent data, inspection, and recovery
+
+MongoDB stores all three service databases in the named `mongodb_data` volume
+mounted at `/data/db`; RabbitMQ stores durable queues in `rabbitmq_data` at
+`/var/lib/rabbitmq`. Inspect them without changing data:
+
+```powershell
+docker volume ls
+docker compose exec mongodb mongosh --quiet --eval 'db.adminCommand({ listDatabases: 1 })'
+docker compose exec rabbitmq rabbitmqctl list_queues name messages consumers
+```
+
+For a local backup, create a dump before infrastructure changes and retain it
+outside Docker volumes. Restore only into a deliberately stopped local stack;
+never overwrite a running service database or purge RabbitMQ queues to solve a
+readiness failure.
+
+```powershell
+docker compose exec mongodb mongodump --archive=/tmp/scout-mongodb.archive
+docker compose cp mongodb:/tmp/scout-mongodb.archive .\artifacts\scout-mongodb.archive
+```
+
+This Compose topology is trusted-development-only. Host ports are for local
+debugging and must not be exposed publicly; it has no authentication or
+authorization boundary.
 
 Each service exposes two separate checks:
 

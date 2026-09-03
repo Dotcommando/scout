@@ -247,7 +247,7 @@ in this plan; their existing service contract remains the audit path.
 
 ## Step 1 — Persist MongoDB data in local Compose
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -279,6 +279,19 @@ down` followed by `up -d` (but not `down -v`); RabbitMQ remains durable.
 ### DoD
 
 - MongoDB persistence is explicit and documented.
+
+### Done
+
+- Added the named `mongodb_data` volume at `/data/db` while retaining the
+  RabbitMQ volume, and documented ordinary versus destructive Compose teardown,
+  inspection, backup, restore, and local-only exposure in `docs/OPERATIONS.md`.
+- Verified with `docker compose up -d mongodb`, a controlled MongoDB insert,
+  `docker compose down`, and a second `up -d mongodb`; the document remained.
+  `docker compose config --quiet` also passed.
+- Mandatory Architecture Gate: `rg` found no prohibited framework,
+  infrastructure, adapter, or BFF imports in the existing Discovery,
+  Qualification, and Actor Gateway `domain` and `app` layers. This step added
+  no application imports or cross-service access.
 
 ## Step 2 — Establish the BFF boundary and versioned operation contracts
 
