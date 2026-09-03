@@ -5,6 +5,7 @@ import { config as loadEnvironmentFile } from 'dotenv';
 
 const DISCOVERY_ENVIRONMENT_FILE_NAME = '.env';
 const DISCOVERY_ACTOR_GATEWAY_URL_KEY = 'DISCOVERY_ACTOR_GATEWAY_URL';
+const DISCOVERY_BUSINESS_TIMEZONE_KEY = 'DISCOVERY_BUSINESS_TIMEZONE';
 const DISCOVERY_LIVE_ARTIFACT_DIRECTORY_KEY = 'DISCOVERY_LIVE_ARTIFACT_DIRECTORY';
 const DISCOVERY_PORT_KEY = 'DISCOVERY_PORT';
 const DISCOVERY_MONGODB_URI_KEY = 'DISCOVERY_MONGODB_URI';
@@ -26,6 +27,7 @@ const MAXIMUM_RABBITMQ_RETRY_MAX_ATTEMPTS = 10;
 
 export interface IDiscoveryRuntimeConfiguration {
   readonly actorGatewayUrl: string;
+  readonly businessTimezone: string;
   readonly liveArtifactDirectory: string;
   readonly mongodbUri: string;
   readonly port: number;
@@ -53,6 +55,7 @@ export class RuntimeConfigurationValidationError extends Error {
 export class DiscoveryRuntimeConfiguration
   implements IDiscoveryRuntimeConfiguration {
   public readonly actorGatewayUrl: string;
+  public readonly businessTimezone: string;
   public readonly liveArtifactDirectory: string;
   public readonly mongodbUri: string;
   public readonly port: number;
@@ -66,6 +69,7 @@ export class DiscoveryRuntimeConfiguration
     const configuration = loadDiscoveryRuntimeConfiguration();
 
     this.actorGatewayUrl = configuration.actorGatewayUrl;
+    this.businessTimezone = configuration.businessTimezone;
     this.liveArtifactDirectory = configuration.liveArtifactDirectory;
     this.mongodbUri = configuration.mongodbUri;
     this.port = configuration.port;
@@ -128,6 +132,11 @@ export function createDiscoveryRuntimeConfiguration(
 
   return {
     actorGatewayUrl,
+    businessTimezone: parseTimezone(
+      environment[DISCOVERY_BUSINESS_TIMEZONE_KEY],
+      configurationFilePath,
+      DISCOVERY_BUSINESS_TIMEZONE_KEY,
+    ),
     liveArtifactDirectory,
     mongodbUri,
     port,
@@ -161,6 +170,26 @@ export function createDiscoveryRuntimeConfiguration(
     ),
     rabbitmqUri,
   };
+}
+
+function parseTimezone(
+  value: string | undefined,
+  configurationFilePath: string,
+  fieldPath: string,
+): string {
+  const timezone = readRequiredValue(value, configurationFilePath, fieldPath);
+
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone });
+  } catch {
+    throw new RuntimeConfigurationValidationError(
+      configurationFilePath,
+      fieldPath,
+      'must be a valid IANA timezone',
+    );
+  }
+
+  return timezone;
 }
 
 function parseHttpUrl(

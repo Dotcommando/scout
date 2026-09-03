@@ -488,7 +488,7 @@ all-or-nothing batch deletion.
 
 ## Step 5 — Compose Discovery work and add durable daily startup
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -536,6 +536,21 @@ verify no existing CLI-only object graph is accidentally reused unsafely.
 - The normal service runtime actually advances configured Discovery work.
 - Daily automatic startup is durable and cannot become duplicate work after a
   process/container/host restart.
+
+### Done
+
+- Composed the production Discovery progress worker with MongoDB state, quota,
+  lead/output repositories and the typed Actor Gateway provider adapter in the
+  HTTP bootstrap. Added an `OnApplicationBootstrap` coordinator after adapter
+  initialization.
+- Added a MongoDB-backed daily-start claim with a uniqueness index on campaign,
+  business date and trigger. The coordinator uses the validated explicit
+  `DISCOVERY_BUSINESS_TIMEZONE` and only invokes the worker for a newly claimed
+  date; a repeated startup observes the durable prior decision.
+- Verified Discovery lint, strict typecheck, all unit/integration tests and
+  build. Mandatory Architecture Gate: startup policy depends only on its
+  campaign, clock, worker and daily-start ports; MongoDB and Actor Gateway
+  implementations remain outbound adapters, while the scheduler is inbound.
 
 ## Step 6 — Add manual Discovery commands and status APIs
 

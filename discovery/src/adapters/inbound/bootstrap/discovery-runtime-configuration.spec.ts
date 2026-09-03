@@ -8,6 +8,7 @@ describe('createDiscoveryRuntimeConfiguration', () => {
     const configuration = createDiscoveryRuntimeConfiguration(
       {
         DISCOVERY_ACTOR_GATEWAY_URL: 'http://localhost:3003',
+        DISCOVERY_BUSINESS_TIMEZONE: 'Europe/Chisinau',
         DISCOVERY_LIVE_ARTIFACT_DIRECTORY: 'artifacts/discovery-live-executions',
         DISCOVERY_MONGODB_URI: 'mongodb://localhost:27017/scout_discovery',
         DISCOVERY_PORT: '3001',
@@ -49,6 +50,7 @@ describe('createDiscoveryRuntimeConfiguration', () => {
       createDiscoveryRuntimeConfiguration(
         {
           DISCOVERY_ACTOR_GATEWAY_URL: 'http://localhost:3003',
+          DISCOVERY_BUSINESS_TIMEZONE: 'Europe/Chisinau',
           DISCOVERY_LIVE_ARTIFACT_DIRECTORY: 'artifacts/discovery-live-executions',
           DISCOVERY_MONGODB_URI: 'mongodb://localhost:27017/scout_discovery',
           DISCOVERY_PORT: '3001',
