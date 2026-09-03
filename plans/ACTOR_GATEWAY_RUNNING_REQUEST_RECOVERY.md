@@ -192,3 +192,132 @@ records were repaired from the legacy running state to completed; the BFF
 returned the completed run and a 10-item page with total 100 while Discovery
 was briefly healthy. Discovery was then stopped before its next scheduled tick
 would begin the configured IE provider search.
+
+## Step 5 - Add compact Lead data actions
+
+**Status:** Done
+
+### Objective
+
+Make each visible Lead data row directly reusable without selecting text, and
+make website information recognisable rather than a generic label.
+
+### Observable result
+
+Lead name, address, phone, metrics/machine data, and website rows have compact
+right-aligned copy controls. Website rows display their hostname and include
+copy-URL and open-in-new-tab icon buttons sized to the text row.
+
+### Implementation
+
+1. Add accessible Material icon actions and a Clipboard API integration to
+   Discovery and Qualification cards.
+2. Derive a safe display hostname from the website URL without exposing its
+   full path as the row label.
+3. Use responsive row layout so long data wraps without displacing its actions.
+
+### Verification
+
+- Frontend unit tests cover hostname derivation and clipboard invocation.
+- Frontend lint, typecheck, tests, and build pass.
+
+### DoD
+
+- Every displayed data row has an accessible copy action.
+- A website row shows its hostname, copies its full URL, and opens the full URL
+  in a new tab with safe link attributes.
+- The controls stay aligned and usable at all four responsive ranges.
+
+### Done
+
+Discovery and Qualification cards now use compact accessible Material icon
+actions for every displayed data row. Website rows show a parsed hostname,
+copy the full URL, and open it safely in a new tab. Hostname and clipboard
+behaviour are unit tested; frontend lint, typecheck, tests, and build pass.
+
+## Step 6 - Add URL-synchronised Material pagination
+
+**Status:** Done
+
+### Objective
+
+Replace bespoke Previous/Next controls with Angular Material pagination that
+supports direct navigation and a shareable current page.
+
+### Observable result
+
+Both result locations use `mat-paginator`; page navigation updates a `page`
+query parameter, restores it when the page opens or browser history changes,
+and presents the current page plus up to two adjacent pages on either side.
+
+### Implementation
+
+1. Bind page index and total to `MatPaginator`, retaining the fixed 50-item
+   server limit.
+2. Add a compact numbered-page window around the Material paginator.
+3. Synchronise the page query parameter on pagination, campaign, tab, and sort
+   changes; restore it on initial load and browser back/forward navigation.
+
+### Verification
+
+- Frontend unit tests cover page window selection and URL updates/restoration.
+- Frontend lint, typecheck, tests, and build pass.
+
+### DoD
+
+- Top and bottom controls always operate on the same page and use Angular
+  Material's paginator.
+- The URL identifies the selected one-based page and can restore it on reload.
+- At most two preceding and two following numbered pages are visible around the
+  active page, within the available page range.
+
+### Done
+
+Both result locations now use `mat-paginator` with first/last controls and a
+numbered current-page window of up to two preceding and two following pages.
+The selected one-based page is stored in the `page` query parameter, restored
+on initial load, and reapplied after browser back/forward navigation. Tests
+cover the page window and Angular URL state; frontend lint, typecheck, 17
+tests, and production build pass. The rebuilt frontend responds successfully
+on port 4200.
+
+## Step 7 - Improve Lead action visibility and proximity
+
+**Status:** Done
+
+### Objective
+
+Make copy and external-link actions unmistakable and position them beside the
+value they act on rather than at the remote edge of a wide card.
+
+### Observable result
+
+Every action has a high-contrast icon and visible compact surface immediately
+after its data value; hover/focus feedback and tooltips identify the action.
+
+### Implementation
+
+1. Move row actions from a space-between layout to the natural end of the data
+   value.
+2. Set explicit high-contrast Material icon-button colours, borders, and state
+   feedback for the dark theme.
+3. Add Material tooltips to icon-only controls.
+
+### Verification
+
+- Frontend lint, typecheck, tests, and build pass.
+- Inspect the rebuilt console at desktop width.
+
+### DoD
+
+- Copy and external-link controls are readily visible without hover.
+- Each control sits immediately to the right of its associated value.
+- Keyboard focus and tooltip text communicate the action.
+
+### Done
+
+Lead actions now sit immediately after their values on a high-contrast circular
+surface, with visible hover/focus feedback and Material tooltips. The rebuilt
+desktop console was visually checked: copy buttons and the website's copy and
+new-tab controls are distinct and legible. Frontend lint, typecheck, tests,
+and build pass.

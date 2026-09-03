@@ -1,12 +1,15 @@
-import { DatePipe, NgClass } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
+import { DatePipe, Location, NgClass } from '@angular/common';
+import { Component, HostListener, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import {
   AdminApiService,
@@ -32,8 +35,11 @@ const PAGE_SIZE = 50;
     MatCardModule,
     MatChipsModule,
     MatDialogModule,
+    MatIconModule,
+    MatPaginatorModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    MatTooltipModule,
     NgClass,
   ],
   selector: 'scout-root',
@@ -62,6 +68,8 @@ export class AppComponent implements OnDestroy, OnInit {
     || isPendingDiscoveryRun(this.discoveryRun()));
   public readonly loading = signal(false);
   public readonly offset = signal(0);
+  public readonly pageIndex = computed(() => Math.floor(this.offset() / PAGE_SIZE));
+  public readonly pageWindow = computed(() => getPageWindow(this.pageIndex(), this.currentTotal(), PAGE_SIZE));
   public readonly qualificationConfigurations = signal<readonly IConfiguration[]>([]);
   public readonly qualificationLeads = signal<readonly IQualificationLead[]>([]);
   public readonly qualificationPage = signal<IPage<IQualificationLead>>(emptyPage<IQualificationLead>());
@@ -78,9 +86,11 @@ export class AppComponent implements OnDestroy, OnInit {
   public constructor(
     private readonly api: AdminApiService,
     private readonly dialog: MatDialog,
+    private readonly location: Location,
   ) {}
 
   public async ngOnInit(): Promise<void> {
+    this.offset.set(readPageOffset(this.location.path(true)));
     await this.loadConfigurations();
   }
 
@@ -116,6 +126,7 @@ export class AppComponent implements OnDestroy, OnInit {
     this.sortBy = 'createdAt';
     this.sortDirection.set(SORT_DIRECTION.DESC);
     this.offset.set(0);
+    this.writePageIndex(0);
     this.selectFirstAvailableCampaign();
   }
 
@@ -124,13 +135,11 @@ export class AppComponent implements OnDestroy, OnInit {
       this.clearDiscoveryRunObservation();
     }
     this.selectedCampaignId.set(campaignId);
-    this.offset.set(0);
-    void this.loadResults();
+    this.goToPage(0);
   }
 
   public resetAndLoad(): void {
-    this.offset.set(0);
-    void this.loadResults();
+    this.goToPage(0);
   }
 
   public toggleDirection(): void {
@@ -140,13 +149,29 @@ export class AppComponent implements OnDestroy, OnInit {
     this.resetAndLoad();
   }
 
-  public nextPage(): void {
-    this.offset.update((offset) => offset + PAGE_SIZE);
+  public goToPage(pageIndex: number): void {
+    const normalizedPageIndex = Math.max(0, pageIndex);
+
+    if (normalizedPageIndex === this.pageIndex()) {
+      return;
+    }
+    this.offset.set(normalizedPageIndex * PAGE_SIZE);
+    this.writePageIndex(normalizedPageIndex);
     void this.loadResults();
   }
 
-  public previousPage(): void {
-    this.offset.update((offset) => Math.max(0, offset - PAGE_SIZE));
+  public onPaginatorPage(event: PageEvent): void {
+    this.goToPage(event.pageIndex);
+  }
+
+  @HostListener('window:popstate')
+  public restorePageFromBrowserHistory(): void {
+    const pageOffset = readPageOffset(this.location.path(true));
+
+    if (pageOffset === this.offset()) {
+      return;
+    }
+    this.offset.set(pageOffset);
     void this.loadResults();
   }
 
@@ -259,6 +284,32 @@ export class AppComponent implements OnDestroy, OnInit {
     return run === undefined
       ? 'Requesting Discovery run'
       : 'Discovery run ' + run.runId + ' is ' + run.status;
+  }
+
+  public async copyText(value: string): Promise<void> {
+    if (navigator.clipboard === undefined) {
+      this.error.set('Copy is not supported by this browser');
+
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch (error: unknown) {
+      this.error.set(error instanceof Error ? error.message : 'Text could not be copied');
+    }
+  }
+
+  public websiteName(websiteUrl: string): string {
+    try {
+      const hostname = new URL(websiteUrl).hostname;
+
+      return hostname.startsWith('www.')
+        ? hostname.slice(4)
+        : hostname;
+    } catch {
+      return websiteUrl;
+    }
   }
 
   public async loadResults(): Promise<void> {
@@ -393,6 +444,18 @@ export class AppComponent implements OnDestroy, OnInit {
       this.discoveryRunPollingTimer = undefined;
     }
   }
+
+  private writePageIndex(pageIndex: number): void {
+    const currentPath = this.location.path(true);
+    const questionMarkIndex = currentPath.indexOf('?');
+    const path = questionMarkIndex === -1
+      ? currentPath
+      : currentPath.slice(0, questionMarkIndex);
+    const parameters = new URLSearchParams(questionMarkIndex === -1 ? '' : currentPath.slice(questionMarkIndex + 1));
+
+    parameters.set('page', String(pageIndex + 1));
+    this.location.go(path === '' ? '/' : path, parameters.toString());
+  }
 }
 
 function discoverySortOptions(): readonly { readonly label: string; readonly value: string }[] {
@@ -422,6 +485,35 @@ function emptyPage<TItem>(): IPage<TItem> {
 function isPendingDiscoveryRun(run: IDiscoveryRun | undefined): boolean {
   return run?.status === DISCOVERY_RUN_STATUS.ACCEPTED
     || run?.status === DISCOVERY_RUN_STATUS.RUNNING;
+}
+
+export function getPageWindow(
+  pageIndex: number,
+  total: number,
+  pageSize: number,
+): readonly number[] {
+  const pageCount = Math.ceil(total / pageSize);
+  const firstPageIndex = Math.max(0, pageIndex - 2);
+  const lastPageIndex = Math.min(pageCount - 1, pageIndex + 2);
+
+  return Array.from(
+    { length: Math.max(0, lastPageIndex - firstPageIndex + 1) },
+    (_, index) => firstPageIndex + index,
+  );
+}
+
+function readPageOffset(path: string): number {
+  const questionMarkIndex = path.indexOf('?');
+
+  if (questionMarkIndex === -1) {
+    return 0;
+  }
+  const pageValue = new URLSearchParams(path.slice(questionMarkIndex + 1)).get('page');
+  const pageNumber = pageValue === null ? 1 : Number(pageValue);
+
+  return Number.isSafeInteger(pageNumber) && pageNumber > 0
+    ? (pageNumber - 1) * PAGE_SIZE
+    : 0;
 }
 
 function readStoredTab(): ADMIN_TAB {

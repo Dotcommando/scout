@@ -182,7 +182,13 @@ second until it completes or fails. Pending Run controls are disabled; a
 failure is shown with the owner-provided safe message and remains retryable.
 When a manual run stays pending across worker ticks, Discovery keeps its
 operation context and completes all coalesced active runs when that campaign
-work reaches a terminal result.
+work reaches a terminal result. Lead data rows provide compact accessible copy
+actions; website rows expose the hostname, a full-URL copy action, and a safe
+new-tab link. Both result locations use Angular Material pagination with a
+one-based `page` query parameter and a direct numbered window of up to two
+pages on either side of the current page. Lead actions use high-contrast
+surfaces immediately after their associated value, with hover/focus feedback
+and accessible tooltips.
 
 ## Deferred Operational Work
 

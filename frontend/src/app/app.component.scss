@@ -134,7 +134,7 @@ h1 {
   margin: 5px 0 0;
 }
 
-.sort-controls, .pagination, .pager-buttons, .card-topline {
+.sort-controls, .pagination, .pager-controls, .page-window, .card-topline {
   align-items: center;
   display: flex;
   gap: 8px;
@@ -149,6 +149,24 @@ mat-select {
   font-size: .86rem;
   justify-content: flex-end;
   min-height: 54px;
+}
+
+.pager-controls {
+  gap: 0;
+  margin-left: auto;
+}
+
+.pager-controls mat-paginator {
+  background: transparent;
+}
+
+.page-window {
+  gap: 2px;
+}
+
+.page-window button.active-page {
+  background: #334a70;
+  color: #d7e2ff;
 }
 
 .pagination.bottom {
@@ -188,22 +206,80 @@ mat-select {
 
 .lead-card h3 {
   font-size: 1.3rem;
-  margin: 0 0 8px;
+  margin: 0;
 }
 
 .details {
-  margin: 0 0 8px;
+  margin: 0;
 }
 
 .lead-card a {
   color: #b6ccff;
-  margin-right: 14px;
 }
 
 .machine, .metrics {
   color: #a5a3aa;
   font-size: .78rem;
-  margin: 12px 0 0;
+  margin: 0;
+}
+
+.lead-data-row, .data-actions {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lead-data-row {
+  justify-content: flex-start;
+  margin-top: 6px;
+}
+
+.lead-name-row {
+  margin-top: 0;
+}
+
+.lead-data-row > :first-child:not(.data-actions) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.machine-row {
+  margin-top: 12px;
+}
+
+.data-action {
+  --mdc-icon-button-state-layer-size: 30px;
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: #d5e3ff;
+  display: inline-flex;
+  flex: 0 0 30px;
+  height: 30px;
+  justify-content: center;
+  margin-left: 2px;
+  margin-right: 2px;
+  padding: 3px;
+  width: 30px;
+}
+
+.data-action mat-icon {
+  color: inherit;
+  font-size: 17px;
+  height: 17px;
+  line-height: 17px;
+  width: 17px;
+}
+
+.data-action:hover {
+  background: #395581;
+}
+
+.data-action:focus-visible {
+  outline: 2px solid #d5e3ff;
+  outline-offset: 2px;
 }
 
 .status {
@@ -270,5 +346,7 @@ mat-select {
   .results { padding: 18px 14px; }
   .results-header, .sort-controls { align-items: stretch; flex-direction: column; }
   .pagination { flex-wrap: wrap; justify-content: space-between; }
+  .pager-controls { margin-left: 0; width: 100%; }
+  .pager-controls mat-paginator { flex: 1; }
   .run-small { margin-left: 0; }
 }

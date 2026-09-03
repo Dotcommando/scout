@@ -49,10 +49,14 @@
       @if (selectedCampaignId() !== '') {
         <div class="pagination top">
           <span>{{ pageLabel() }}</span>
-          <span class="pager-buttons">
-            <button [disabled]="offset() === 0 || loading()" (click)="previousPage()" mat-button>Previous</button>
-            <button [disabled]="offset() + 50 >= currentTotal() || loading()" (click)="nextPage()" mat-button>Next</button>
-          </span>
+          <div class="pager-controls">
+            <mat-paginator [disabled]="loading()" [hidePageSize]="true" [length]="currentTotal()" [pageIndex]="pageIndex()" [pageSize]="50" [showFirstLastButtons]="true" (page)="onPaginatorPage($event)"></mat-paginator>
+            <span aria-label="Page selection" class="page-window">
+              @for (page of pageWindow(); track page) {
+                <button [class.active-page]="page === pageIndex()" [disabled]="loading() || page === pageIndex()" (click)="goToPage(page)" mat-button type="button">{{ page + 1 }}</button>
+              }
+            </span>
+          </div>
           @if (activeTab() === tabs.DISCOVERY && discoveryLeads().length > 0) {
             <button [disabled]="isDiscoveryRunPending()" (click)="runDiscovery()" class="run-small" color="primary" mat-flat-button>Run</button>
           }
@@ -79,11 +83,33 @@
             @for (lead of discoveryLeads(); track lead.leadId) {
               <mat-card class="lead-card">
                 <mat-card-content>
-                  <h3>{{ lead.name }}</h3>
-                  <p class="details">{{ lead.address || 'Address unavailable' }}</p>
-                  @if (lead.websiteUrl) { <a [href]="lead.websiteUrl" target="_blank">Website</a> }
-                  @if (lead.phoneNumber) { <a [href]="'tel:' + lead.phoneNumber">{{ lead.phoneNumber }}</a> }
-                  <p class="machine">Lead ID {{ lead.leadId }} · {{ lead.sourceKind }} · {{ lead.externalId }} · {{ lead.createdAt | date:'medium' }}</p>
+                  <div class="lead-data-row lead-name-row">
+                    <h3>{{ lead.name }}</h3>
+                    <button (click)="copyText(lead.name)" aria-label="Copy lead name" class="data-action" mat-icon-button matTooltip="Copy name" type="button"><mat-icon>content_copy</mat-icon></button>
+                  </div>
+                  <div class="lead-data-row">
+                    <p class="details">{{ lead.address || 'Address unavailable' }}</p>
+                    <button (click)="copyText(lead.address || 'Address unavailable')" aria-label="Copy address" class="data-action" mat-icon-button matTooltip="Copy address" type="button"><mat-icon>content_copy</mat-icon></button>
+                  </div>
+                  @if (lead.websiteUrl) {
+                    <div class="lead-data-row">
+                      <a [href]="lead.websiteUrl" rel="noopener noreferrer" target="_blank">{{ websiteName(lead.websiteUrl) }}</a>
+                      <span class="data-actions">
+                        <button (click)="copyText(lead.websiteUrl)" aria-label="Copy website address" class="data-action" mat-icon-button matTooltip="Copy website address" type="button"><mat-icon>content_copy</mat-icon></button>
+                        <a [href]="lead.websiteUrl" aria-label="Open website in a new tab" class="data-action" mat-icon-button matTooltip="Open website in a new tab" rel="noopener noreferrer" target="_blank"><mat-icon>open_in_new</mat-icon></a>
+                      </span>
+                    </div>
+                  }
+                  @if (lead.phoneNumber) {
+                    <div class="lead-data-row">
+                      <a [href]="'tel:' + lead.phoneNumber">{{ lead.phoneNumber }}</a>
+                      <button (click)="copyText(lead.phoneNumber)" aria-label="Copy phone number" class="data-action" mat-icon-button matTooltip="Copy phone number" type="button"><mat-icon>content_copy</mat-icon></button>
+                    </div>
+                  }
+                  <div class="lead-data-row machine-row">
+                    <p class="machine">Lead ID {{ lead.leadId }} · {{ lead.sourceKind }} · {{ lead.externalId }} · {{ lead.createdAt | date:'medium' }}</p>
+                    <button (click)="copyText('Lead ID ' + lead.leadId + ' · ' + lead.sourceKind + ' · ' + lead.externalId)" aria-label="Copy machine data" class="data-action" mat-icon-button matTooltip="Copy machine data" type="button"><mat-icon>content_copy</mat-icon></button>
+                  </div>
                 </mat-card-content>
               </mat-card>
             }
@@ -95,10 +121,37 @@
                     <span [ngClass]="'status-' + qualificationStatus(item)" class="status">{{ qualificationStatusIcon(item) }} {{ qualificationStatus(item) }}</span>
                     <button [disabled]="commandPending()" (click)="requalify(item.lead.leadId)" mat-stroked-button>Requalify</button>
                   </div>
-                  <h3>{{ item.lead.name }}</h3>
-                  <p class="details">{{ item.lead.address || 'Address unavailable' }}</p>
-                  <p class="metrics">{{ metricSummary(item) }}</p>
-                  <p class="machine">Lead ID {{ item.lead.leadId }} · {{ item.lead.sourceKind }} · {{ item.lead.externalId }} · {{ item.createdAt | date:'medium' }}</p>
+                  <div class="lead-data-row lead-name-row">
+                    <h3>{{ item.lead.name }}</h3>
+                    <button (click)="copyText(item.lead.name)" aria-label="Copy lead name" class="data-action" mat-icon-button matTooltip="Copy name" type="button"><mat-icon>content_copy</mat-icon></button>
+                  </div>
+                  <div class="lead-data-row">
+                    <p class="details">{{ item.lead.address || 'Address unavailable' }}</p>
+                    <button (click)="copyText(item.lead.address || 'Address unavailable')" aria-label="Copy address" class="data-action" mat-icon-button matTooltip="Copy address" type="button"><mat-icon>content_copy</mat-icon></button>
+                  </div>
+                  @if (item.lead.websiteUrl) {
+                    <div class="lead-data-row">
+                      <a [href]="item.lead.websiteUrl" rel="noopener noreferrer" target="_blank">{{ websiteName(item.lead.websiteUrl) }}</a>
+                      <span class="data-actions">
+                        <button (click)="copyText(item.lead.websiteUrl)" aria-label="Copy website address" class="data-action" mat-icon-button matTooltip="Copy website address" type="button"><mat-icon>content_copy</mat-icon></button>
+                        <a [href]="item.lead.websiteUrl" aria-label="Open website in a new tab" class="data-action" mat-icon-button matTooltip="Open website in a new tab" rel="noopener noreferrer" target="_blank"><mat-icon>open_in_new</mat-icon></a>
+                      </span>
+                    </div>
+                  }
+                  @if (item.lead.phoneNumber) {
+                    <div class="lead-data-row">
+                      <a [href]="'tel:' + item.lead.phoneNumber">{{ item.lead.phoneNumber }}</a>
+                      <button (click)="copyText(item.lead.phoneNumber)" aria-label="Copy phone number" class="data-action" mat-icon-button matTooltip="Copy phone number" type="button"><mat-icon>content_copy</mat-icon></button>
+                    </div>
+                  }
+                  <div class="lead-data-row">
+                    <p class="metrics">{{ metricSummary(item) }}</p>
+                    <button (click)="copyText(metricSummary(item))" aria-label="Copy qualification metrics" class="data-action" mat-icon-button matTooltip="Copy qualification metrics" type="button"><mat-icon>content_copy</mat-icon></button>
+                  </div>
+                  <div class="lead-data-row machine-row">
+                    <p class="machine">Lead ID {{ item.lead.leadId }} · {{ item.lead.sourceKind }} · {{ item.lead.externalId }} · {{ item.createdAt | date:'medium' }}</p>
+                    <button (click)="copyText('Lead ID ' + item.lead.leadId + ' · ' + item.lead.sourceKind + ' · ' + item.lead.externalId)" aria-label="Copy machine data" class="data-action" mat-icon-button matTooltip="Copy machine data" type="button"><mat-icon>content_copy</mat-icon></button>
+                  </div>
                 </mat-card-content>
               </mat-card>
             }
@@ -109,10 +162,14 @@
       @if (selectedCampaignId() !== '') {
         <div class="pagination bottom">
           <span>{{ pageLabel() }}</span>
-          <span class="pager-buttons">
-            <button [disabled]="offset() === 0 || loading()" (click)="previousPage()" mat-button>Previous</button>
-            <button [disabled]="offset() + 50 >= currentTotal() || loading()" (click)="nextPage()" mat-button>Next</button>
-          </span>
+          <div class="pager-controls">
+            <mat-paginator [disabled]="loading()" [hidePageSize]="true" [length]="currentTotal()" [pageIndex]="pageIndex()" [pageSize]="50" [showFirstLastButtons]="true" (page)="onPaginatorPage($event)"></mat-paginator>
+            <span aria-label="Page selection" class="page-window">
+              @for (page of pageWindow(); track page) {
+                <button [class.active-page]="page === pageIndex()" [disabled]="loading() || page === pageIndex()" (click)="goToPage(page)" mat-button type="button">{{ page + 1 }}</button>
+              }
+            </span>
+          </div>
           @if (activeTab() === tabs.DISCOVERY && discoveryLeads().length > 0) {
             <button [disabled]="isDiscoveryRunPending()" (click)="runDiscovery()" class="run-small" color="primary" mat-flat-button>Run</button>
           }

@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { Location } from '@angular/common';
 
 import {
   ADMIN_TAB,
@@ -11,7 +12,7 @@ import {
   IQualificationLead,
   SORT_DIRECTION,
 } from './admin-api.service';
-import { AppComponent } from './app.component';
+import { AppComponent, getPageWindow } from './app.component';
 
 describe('AppComponent', () => {
   let api: AdminApiServiceStub;
@@ -31,6 +32,49 @@ describe('AppComponent', () => {
 
   it('defaults to the Discovery tab when storage has no value', () => {
     expect(component.activeTab()).toBe(ADMIN_TAB.DISCOVERY);
+  });
+
+  it('shows a hostname instead of a generic website label', () => {
+    expect(component.websiteName('https://www.example.com/path?query=value')).toBe('example.com');
+  });
+
+  it('copies a value through the browser clipboard', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    const writeText = jasmine.createSpy('writeText').and.resolveTo();
+
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    try {
+      await component.copyText('copied value');
+
+      expect(writeText).toHaveBeenCalledOnceWith('copied value');
+    } finally {
+      if (descriptor === undefined) {
+        Reflect.deleteProperty(navigator, 'clipboard');
+      } else {
+        Object.defineProperty(navigator, 'clipboard', descriptor);
+      }
+    }
+  });
+
+  it('keeps up to two preceding and following pages in the page window', () => {
+    expect(getPageWindow(4, 500, 50)).toEqual([2, 3, 4, 5, 6]);
+    expect(getPageWindow(0, 500, 50)).toEqual([0, 1, 2]);
+    expect(getPageWindow(9, 500, 50)).toEqual([7, 8, 9]);
+  });
+
+  it('writes the selected page to the URL before loading it', async () => {
+    prepareDiscoveryCampaign(component);
+    component.discoveryPage.set({ items: [], limit: 50, offset: 0, total: 500 });
+
+    component.goToPage(2);
+    await settlePromises();
+
+    expect(TestBed.inject(Location).path(true)).toContain('page=3');
+    expect(component.offset()).toBe(100);
   });
 
   it('blocks duplicate Run clicks and polls until completion', async () => {
