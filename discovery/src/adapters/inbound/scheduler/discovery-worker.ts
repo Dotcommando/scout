@@ -9,6 +9,8 @@ import {
   DiscoveryWorkError,
 } from '../../../app/discovery/discovery-progress.service.js';
 import type { IDiscoveryOperationRunRepositoryPort } from '../../../ports/outbound/discovery-operation-run-repository.port.js';
+import type { IDiscoveryOperationRun } from '../../../ports/outbound/discovery-operation-run-repository.port.js';
+import { DISCOVERY_OPERATION_RUN_STATUS } from '../../../ports/outbound/discovery-operation-run-repository.port.js';
 import { writeDiscoveryFailureLog, writeDiscoveryLog } from '../bootstrap/discovery-structured-logger.js';
 
 const DISCOVERY_WORK_INTERVAL_MILLISECONDS = 60_000;
@@ -34,14 +36,23 @@ export class DiscoveryWorker {
 
     this.isTickRunning = true;
     const correlationId = crypto.randomUUID();
+    let operationRun: IDiscoveryOperationRun | undefined;
 
     try {
-      const operationRun = await this.operationRunRepository?.claimNextAcceptedRun(new Date());
+      operationRun = await this.operationRunRepository?.claimNextAcceptedRun(new Date());
       const result = await this.discoveryWorkUseCase.advanceDiscoveryWork({
         correlationId,
         ...(operationRun === undefined ? {} : { maximumProviderItems: operationRun.maximumProviderItems }),
         workerId: `discovery-worker-${process.pid}`,
       });
+
+      if (operationRun !== undefined && isTerminalOutcome(result.outcome)) {
+        await this.operationRunRepository?.updateRunStatus(
+          operationRun.runId,
+          DISCOVERY_OPERATION_RUN_STATUS.COMPLETED,
+          new Date(),
+        );
+      }
 
       writeDiscoveryLog({
         className: 'DiscoveryWorker',
@@ -56,6 +67,15 @@ export class DiscoveryWorker {
 
       return result.outcome;
     } catch (error: unknown) {
+      if (operationRun !== undefined) {
+        await this.operationRunRepository?.updateRunStatus(
+          operationRun.runId,
+          DISCOVERY_OPERATION_RUN_STATUS.FAILED,
+          new Date(),
+          error instanceof Error ? error.message : 'Unknown failure',
+        );
+      }
+
       const context = getFailureContext(error);
 
       writeDiscoveryFailureLog({
@@ -80,6 +100,14 @@ export class DiscoveryWorker {
       this.isTickRunning = false;
     }
   }
+}
+
+function isTerminalOutcome(outcome: DISCOVERY_WORK_OUTCOME): boolean {
+  return outcome === DISCOVERY_WORK_OUTCOME.BUDGET_EXHAUSTED
+    || outcome === DISCOVERY_WORK_OUTCOME.IDLE
+    || outcome === DISCOVERY_WORK_OUTCOME.IMPORT_COMPLETED
+    || outcome === DISCOVERY_WORK_OUTCOME.TERMINAL_PROVIDER_FAILURE
+    || outcome === DISCOVERY_WORK_OUTCOME.YIELD_PAUSED;
 }
 
 interface IDiscoveryWorkerFailureContext {

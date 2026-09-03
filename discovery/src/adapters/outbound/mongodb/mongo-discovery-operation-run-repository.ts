@@ -64,4 +64,22 @@ export class MongoDiscoveryOperationRunRepository
   public async saveRun(run: IDiscoveryOperationRun): Promise<void> {
     await this.collection.insertOne(run);
   }
+
+  public async updateRunStatus(
+    runId: string,
+    status: DISCOVERY_OPERATION_RUN_STATUS,
+    updatedAt: Date,
+    failureMessage?: string,
+  ): Promise<void> {
+    await this.collection.updateOne(
+      { runId },
+      {
+        $set: {
+          ...(failureMessage === undefined ? {} : { failureMessage }),
+          status,
+          updatedAt,
+        },
+      },
+    );
+  }
 }

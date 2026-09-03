@@ -14,6 +14,7 @@ export interface IDiscoveryOperationRun {
   readonly configurationHash: string;
   readonly correlationId: string;
   readonly createdAt: Date;
+  readonly failureMessage?: string;
   readonly idempotencyKey: string;
   readonly maximumProviderItems: number;
   readonly runId: string;
@@ -30,6 +31,12 @@ export interface IDiscoveryOperationRunRepositoryPort {
   findRun(runId: string): Promise<IDiscoveryOperationRun | undefined>;
   listRuns(campaignId: string | undefined, offset: number, limit: number): Promise<IDiscoveryOperationRunPage>;
   saveRun(run: IDiscoveryOperationRun): Promise<void>;
+  updateRunStatus(
+    runId: string,
+    status: DISCOVERY_OPERATION_RUN_STATUS,
+    updatedAt: Date,
+    failureMessage?: string,
+  ): Promise<void>;
 }
 
 export interface IDiscoveryOperationRunPage {

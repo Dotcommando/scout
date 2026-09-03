@@ -54,6 +54,8 @@ class InMemoryOperationRuns implements IDiscoveryOperationRunRepositoryPort {
   public async saveRun(run: IDiscoveryOperationRun): Promise<void> {
     this.runs.push(run);
   }
+
+  public async updateRunStatus(): Promise<void> {}
 }
 
 describe('RequestDiscoveryRunService', () => {

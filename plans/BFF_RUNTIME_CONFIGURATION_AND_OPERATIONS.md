@@ -554,7 +554,7 @@ verify no existing CLI-only object graph is accidentally reused unsafely.
 
 ## Step 6 — Add manual Discovery commands and status APIs
 
-**Status:** In Progress
+**Status:** Done
 
 ### Objective
 
@@ -594,6 +594,21 @@ count.
 
 - Manual runs are bounded, observable, and idempotent.
 - Discovery status is an operation view, not merely a process heartbeat.
+
+### Done
+
+- Added durable manual Discovery command records with a database uniqueness
+  constraint for `(campaignId, idempotencyKey)`, requested item bounds, run
+  lifecycle, failure summary, configuration hash and correlation identifier.
+  The scheduler atomically claims accepted commands and records terminal
+  completion or failure without holding the command HTTP request open.
+- Added Discovery and BFF run creation, history, detail and campaign status
+  routes. Commands return `202`; histories use stable newest-first ordering.
+- Verified Discovery and BFF strict typecheck, lint, tests and builds.
+  Mandatory Architecture Gate: command orchestration is an application service
+  over configuration/clock/run ports; the HTTP endpoints only validate/map
+  transport and the BFF remains an outbound HTTP client with no persistence
+  access.
 
 ## Step 7 — Persist and migrate revisioned Qualification configuration
 
