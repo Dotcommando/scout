@@ -12,6 +12,13 @@ export {
   parseActorGatewayRequestStatus,
   parseActorGatewayResolveRequest,
 } from './actor-gateway-contract.js';
+export type { IServiceHealthResponse } from './bff-service-contract.js';
+export {
+  BFF_SERVICE_HEALTH_STATUS,
+  BFF_SERVICE_SCHEMA_VERSION,
+  BffServiceContractValidationError,
+  parseServiceHealthResponse,
+} from './bff-service-contract.js';
 export type {
   IDiscoveredLeadEvent,
   IDiscoveredLeadSnapshot,

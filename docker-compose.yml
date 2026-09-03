@@ -94,6 +94,29 @@ services:
     volumes:
       - ./config/qualification:/workspace/config/qualification:ro
 
+  bff:
+    build:
+      context: .
+      dockerfile: bff/Dockerfile
+    depends_on:
+      discovery:
+        condition: service_started
+      qualification:
+        condition: service_started
+    environment:
+      BFF_CORS_ORIGINS: ${BFF_CORS_ORIGINS}
+      BFF_DISCOVERY_URL: http://discovery:3001
+      BFF_HTTP_TIMEOUT_MS: ${BFF_HTTP_TIMEOUT_MS}
+      BFF_PORT: '3000'
+      BFF_QUALIFICATION_URL: http://qualification:3002
+    ports:
+      - '127.0.0.1:${BFF_PORT}:3000'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://localhost:3000/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
 volumes:
   mongodb_data:
   rabbitmq_data:

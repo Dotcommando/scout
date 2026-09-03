@@ -295,7 +295,7 @@ down` followed by `up -d` (but not `down -v`); RabbitMQ remains durable.
 
 ## Step 2 — Establish the BFF boundary and versioned operation contracts
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -344,6 +344,28 @@ service database.
 - BFF is independently buildable/runnable and has no cross-service database
   access.
 - Browser-facing transport contracts are versioned and validated.
+
+### Done
+
+- Added the independently deployable `bff` NestJS service, Docker image and
+  local-only Compose binding at `127.0.0.1:3000`; its typed outbound client
+  currently calls only Discovery and Qualification `/health/ready` endpoints.
+  Runtime configuration validates service URLs, timeout, CORS origins and port;
+  `.env` and `.env.example` now contain matching BFF values.
+- Added the versioned stable BFF service-health contract in
+  `packages/contracts`, readiness application use case, structured/redacted
+  BFF logs, liveness, readiness, CORS and graceful-shutdown wiring. BFF has no
+  MongoDB dependency or persistence adapter.
+- Verified byte-for-byte matches for the copied `.npmrc`, `eslint.config.mjs`,
+  `tsconfig.json` and `tsconfig.build.json` against Discovery. Ran BFF and
+  contracts `lint`, strict `typecheck`, tests and builds. Compose proved BFF
+  readiness returns 200 with both dependencies healthy, 503 while Qualification
+  is stopped, and 200 after it is restored.
+- Mandatory Architecture Gate: targeted `rg` checks found no MongoDB client,
+  service database identifier, prohibited adapter import in BFF application
+  code, or prohibited framework/infrastructure import in any BFF domain code.
+  The new BFF client is an outbound HTTP adapter; the readiness use case imports
+  only its port and the controller delegates to that use case.
 
 ## Step 3 — Persist and migrate revisioned Discovery configuration
 
