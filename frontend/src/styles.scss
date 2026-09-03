@@ -1,10 +1,15 @@
 @use '@angular/material' as mat;
 
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
 html {
   @include mat.theme((
     color: mat.$violet-palette,
     density: 0,
-    typography: Roboto,
+    typography: (
+      plain-family: 'Roboto, Arial, sans-serif',
+      brand-family: 'Roboto, Arial, sans-serif',
+    ),
   ));
 }
 
