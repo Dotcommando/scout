@@ -34,7 +34,7 @@ terminal state.
 
 ## Step 1 - Define and validate the tracked-run boundary
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -67,9 +67,16 @@ message.
 - The UI can reliably distinguish accepted/running from completed/failed using
   only BFF data.
 
+### Done
+
+Confirmed that the existing owner and BFF routes preserve the run resource.
+Added strict frontend run-status parsing and typed POST/GET client methods.
+Unit tests cover all four statuses, invalid status data, accepted POST data,
+and an owner error.
+
 ## Step 2 - Implement the Discovery Run lifecycle in the console
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -109,9 +116,19 @@ and restores actionable controls with a clear error when the run fails.
 - An operator can always see whether the requested Run is in progress,
   completed, or failed, and cannot accidentally submit it twice.
 
+### Done
+
+Implemented an observation lifecycle keyed by the submitted runId. It blocks
+duplicate Discovery Run intents, shows a live central spinner for an empty
+result page, polls exactly once per second, refreshes Leads only after
+completed, and exposes safe failure/polling errors while restoring Run.
+Timers are cleared for terminal states, campaign/tab changes, and component
+destruction. Chrome-hosted component tests cover the visible pending state,
+duplicate clicks, completion, failed runs, polling errors, and cancellation.
+
 ## Step 3 - Verify and document the interaction
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -139,6 +156,12 @@ states the tracked-run lifecycle expected by the console.
 
 - The interaction is documented, verified, and safe to extend with further
   operator feedback improvements.
+
+### Done
+
+Documented the BFF run-observation lifecycle and updated ACTUAL_STATE.md.
+Final frontend lint, strict typecheck, Chrome unit tests, and production build
+all pass. No test or verification call contacted a real actor.
 
 # Plan completion criteria
 

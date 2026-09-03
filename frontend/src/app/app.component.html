@@ -54,17 +54,23 @@
             <button [disabled]="offset() + 50 >= currentTotal() || loading()" (click)="nextPage()" mat-button>Next</button>
           </span>
           @if (activeTab() === tabs.DISCOVERY && discoveryLeads().length > 0) {
-            <button [disabled]="commandPending()" (click)="runDiscovery()" class="run-small" color="primary" mat-flat-button>Run</button>
+            <button [disabled]="isDiscoveryRunPending()" (click)="runDiscovery()" class="run-small" color="primary" mat-flat-button>Run</button>
           }
         </div>
       }
 
+      @if (activeTab() === tabs.DISCOVERY && discoveryRunError() !== '') {
+        <p aria-live="assertive" class="run-error" role="alert">{{ discoveryRunError() }}</p>
+      }
+
       @if (loading()) {
         <div class="center-state"><mat-spinner diameter="36"></mat-spinner></div>
+      } @else if (activeTab() === tabs.DISCOVERY && isDiscoveryRunPending() && discoveryLeads().length === 0) {
+        <div aria-live="polite" class="center-state" role="status"><mat-spinner diameter="36"></mat-spinner><p>{{ discoveryRunStatusText() }}</p></div>
       } @else if (error() !== '') {
         <div class="center-state"><p>{{ error() }}</p><button (click)="loadResults()" mat-stroked-button>Retry</button></div>
       } @else if (activeTab() === tabs.DISCOVERY && selectedCampaignId() !== '' && discoveryLeads().length === 0) {
-        <div class="center-state"><button [disabled]="commandPending()" (click)="runDiscovery()" color="primary" mat-flat-button>Run</button></div>
+        <div class="center-state"><button [disabled]="isDiscoveryRunPending()" (click)="runDiscovery()" color="primary" mat-flat-button>Run</button></div>
       } @else if (activeTab() === tabs.QUALIFICATION && selectedCampaignId() !== '' && qualificationLeads().length === 0) {
         <div class="center-state"><p>There are nothing yet</p></div>
       } @else {
@@ -108,7 +114,7 @@
             <button [disabled]="offset() + 50 >= currentTotal() || loading()" (click)="nextPage()" mat-button>Next</button>
           </span>
           @if (activeTab() === tabs.DISCOVERY && discoveryLeads().length > 0) {
-            <button [disabled]="commandPending()" (click)="runDiscovery()" class="run-small" color="primary" mat-flat-button>Run</button>
+            <button [disabled]="isDiscoveryRunPending()" (click)="runDiscovery()" class="run-small" color="primary" mat-flat-button>Run</button>
           }
         </div>
       }

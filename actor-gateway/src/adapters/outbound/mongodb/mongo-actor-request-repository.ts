@@ -7,6 +7,8 @@ import {
   ACTOR_REQUEST_STATUS,
   IActorGatewayArchiveManifest,
   IActorGatewayRequestStatus,
+  IActorGatewayResolveRequest,
+  parseActorGatewayResolveRequest,
 } from '@scout/contracts';
 import {
   Collection,
@@ -261,6 +263,26 @@ export class MongoActorRequestRepository
     return request === null ? null : toRequestStatus(request);
   }
 
+  public async findRequestExecutionInput(
+    requestId: string,
+  ): Promise<IActorGatewayResolveRequest | null> {
+    const request = await this.requestCollection.findOne({ requestId });
+
+    if (request === null) {
+      return null;
+    }
+
+    return parseActorGatewayResolveRequest({
+      actorDefinitionId: request.actorDefinitionId,
+      actorRevision: request.actorRevision,
+      cachePolicyRevision: request.cachePolicyRevision,
+      canonicalInput: parseCanonicalInput(request.canonicalInput),
+      correlationId: request.correlationId,
+      requestedAt: request.createdAt.toISOString(),
+      schemaVersion: ACTOR_GATEWAY_SCHEMA_VERSION.V1,
+    });
+  }
+
   public async findObservedFields(
     actorDefinitionId: string,
     pathFragment: string,
@@ -469,6 +491,16 @@ function readArchiveRecords(content: Uint8Array): readonly unknown[] {
   }
 
   return parsed;
+}
+
+function parseCanonicalInput(canonicalInput: string): unknown {
+  try {
+    const parsed: unknown = JSON.parse(canonicalInput);
+
+    return parsed;
+  } catch (error: unknown) {
+    throw new Error('persisted actor canonical input is invalid JSON', { cause: error });
+  }
 }
 
 function createRequestDocument(request: ICanonicalActorRequest): IActorRequestDocument {

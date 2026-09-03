@@ -1,4 +1,5 @@
 import {
+  ACTOR_REQUEST_STATUS,
   IActorGatewayArchiveManifest,
   IActorGatewayRequestStatus,
   IActorGatewayResolveRequest,
@@ -39,7 +40,19 @@ export class ActorGatewayService implements
   public async getRequestStatus(
     requestId: string,
   ): Promise<IActorGatewayRequestStatus | null> {
-    return this.actorRequestRepository.findRequestStatus(requestId);
+    const status = await this.actorRequestRepository.findRequestStatus(requestId);
+
+    if (status === null || this.actorExecutionService === undefined || isTerminalStatus(status.status)) {
+      return status;
+    }
+
+    const input = await this.actorRequestRepository.findRequestExecutionInput(requestId);
+
+    if (input === null) {
+      throw new Error(`actor request execution input was not found: ${requestId}`);
+    }
+
+    return this.actorExecutionService.execute(status, input);
   }
 
   public async resolveRequest(
@@ -62,4 +75,9 @@ export class ActorGatewayService implements
       ? status
       : this.actorExecutionService.execute(status, input);
   }
+}
+
+function isTerminalStatus(status: ACTOR_REQUEST_STATUS): boolean {
+  return status === ACTOR_REQUEST_STATUS.SUCCEEDED
+    || status === ACTOR_REQUEST_STATUS.FAILED;
 }

@@ -43,9 +43,15 @@ class InMemoryOperationRuns implements IDiscoveryOperationRunRepositoryPort {
     return undefined;
   }
 
+  public async findOldestRunningRun(): Promise<IDiscoveryOperationRun | undefined> {
+    return undefined;
+  }
+
   public async findRun(runId: string): Promise<IDiscoveryOperationRun | undefined> {
     return this.runs.find((run) => run.runId === runId);
   }
+
+  public async finishActiveCampaignRuns(): Promise<void> {}
 
   public async listRuns(): Promise<IDiscoveryOperationRunPage> {
     return { items: this.runs, total: this.runs.length };

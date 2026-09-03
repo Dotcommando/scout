@@ -1,5 +1,5 @@
 import { DatePipe, NgClass } from '@angular/common';
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -11,8 +11,10 @@ import { MatSelectModule } from '@angular/material/select';
 import {
   AdminApiService,
   ADMIN_TAB,
+  DISCOVERY_RUN_STATUS,
   IConfiguration,
   IDiscoveryLead,
+  IDiscoveryRun,
   IPage,
   IQualificationLead,
   SORT_DIRECTION,
@@ -39,7 +41,7 @@ const PAGE_SIZE = 50;
   styleUrl: './app.component.scss',
   templateUrl: './app.component.html',
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnDestroy, OnInit {
   public readonly activeTab = signal(readStoredTab());
   public readonly commandPending = signal(false);
   public readonly configurations = computed(() => this.activeTab() === ADMIN_TAB.DISCOVERY
@@ -52,7 +54,12 @@ export class AppComponent implements OnInit {
   public readonly discoveryConfigurations = signal<readonly IConfiguration[]>([]);
   public readonly discoveryLeads = signal<readonly IDiscoveryLead[]>([]);
   public readonly discoveryPage = signal<IPage<IDiscoveryLead>>(emptyPage<IDiscoveryLead>());
+  public readonly discoveryRun = signal<IDiscoveryRun | undefined>(undefined);
+  public readonly discoveryRunError = signal('');
+  public readonly discoveryRunRequestPending = signal(false);
   public readonly error = signal('');
+  public readonly isDiscoveryRunPending = computed(() => this.discoveryRunRequestPending()
+    || isPendingDiscoveryRun(this.discoveryRun()));
   public readonly loading = signal(false);
   public readonly offset = signal(0);
   public readonly qualificationConfigurations = signal<readonly IConfiguration[]>([]);
@@ -65,6 +72,8 @@ export class AppComponent implements OnInit {
     : qualificationSortOptions());
   public sortBy = 'createdAt';
   public readonly tabs = ADMIN_TAB;
+  private discoveryRunPollingTimer: ReturnType<typeof setTimeout> | undefined;
+  private discoveryRunObservationVersion = 0;
 
   public constructor(
     private readonly api: AdminApiService,
@@ -73,6 +82,10 @@ export class AppComponent implements OnInit {
 
   public async ngOnInit(): Promise<void> {
     await this.loadConfigurations();
+  }
+
+  public ngOnDestroy(): void {
+    this.clearDiscoveryRunObservation();
   }
 
   public async loadConfigurations(): Promise<void> {
@@ -95,6 +108,9 @@ export class AppComponent implements OnInit {
   }
 
   public selectTab(tab: ADMIN_TAB): void {
+    if (tab !== this.activeTab()) {
+      this.clearDiscoveryRunObservation();
+    }
     this.activeTab.set(tab);
     saveStoredTab(tab);
     this.sortBy = 'createdAt';
@@ -104,6 +120,9 @@ export class AppComponent implements OnInit {
   }
 
   public selectCampaign(campaignId: string): void {
+    if (campaignId !== this.selectedCampaignId()) {
+      this.clearDiscoveryRunObservation();
+    }
     this.selectedCampaignId.set(campaignId);
     this.offset.set(0);
     void this.loadResults();
@@ -144,10 +163,10 @@ export class AppComponent implements OnInit {
   public async runDiscovery(): Promise<void> {
     const campaignId = this.selectedCampaignId();
 
-    if (campaignId === '') {
+    if (campaignId === '' || this.activeTab() !== ADMIN_TAB.DISCOVERY || this.isDiscoveryRunPending()) {
       return;
     }
-    this.commandPending.set(true);
+    const observationVersion = this.beginDiscoveryRunObservation();
 
     try {
       const configuration = this.discoveryConfigurations().find(
@@ -158,12 +177,21 @@ export class AppComponent implements OnInit {
       if (maximumProviderItems === undefined) {
         throw new Error('Selected Discovery configuration has no run limit');
       }
-      await this.api.runDiscovery(campaignId, maximumProviderItems);
-      await this.loadResults();
+      const run = await this.api.runDiscovery(campaignId, maximumProviderItems);
+
+      if (!this.isCurrentDiscoveryRunObservation(observationVersion, campaignId)) {
+        return;
+      }
+      this.discoveryRun.set(run);
+      await this.handleDiscoveryRunUpdate(run, observationVersion);
     } catch (error: unknown) {
-      this.error.set(error instanceof Error ? error.message : 'Run could not be requested');
+      if (this.isCurrentDiscoveryRunObservation(observationVersion, campaignId)) {
+        this.discoveryRunError.set(error instanceof Error ? error.message : 'Run could not be requested');
+      }
     } finally {
-      this.commandPending.set(false);
+      if (this.isCurrentDiscoveryRunObservation(observationVersion, campaignId)) {
+        this.discoveryRunRequestPending.set(false);
+      }
     }
   }
 
@@ -225,6 +253,14 @@ export class AppComponent implements OnInit {
         : '•';
   }
 
+  public discoveryRunStatusText(): string {
+    const run = this.discoveryRun();
+
+    return run === undefined
+      ? 'Requesting Discovery run'
+      : 'Discovery run ' + run.runId + ' is ' + run.status;
+  }
+
   public async loadResults(): Promise<void> {
     const campaignId = this.selectedCampaignId();
 
@@ -261,9 +297,100 @@ export class AppComponent implements OnInit {
       ? selected
       : configurations[0]?.campaignId ?? '';
 
+    if (campaignId !== selected) {
+      this.clearDiscoveryRunObservation();
+    }
     this.selectedCampaignId.set(campaignId);
     if (campaignId !== '') {
       void this.loadResults();
+    }
+  }
+
+  private beginDiscoveryRunObservation(): number {
+    this.clearDiscoveryRunObservation();
+    this.discoveryRunRequestPending.set(true);
+    this.discoveryRunError.set('');
+
+    return this.discoveryRunObservationVersion;
+  }
+
+  private clearDiscoveryRunObservation(): void {
+    this.discoveryRunObservationVersion += 1;
+    if (this.discoveryRunPollingTimer !== undefined) {
+      clearTimeout(this.discoveryRunPollingTimer);
+      this.discoveryRunPollingTimer = undefined;
+    }
+    this.discoveryRun.set(undefined);
+    this.discoveryRunError.set('');
+    this.discoveryRunRequestPending.set(false);
+  }
+
+  private async handleDiscoveryRunUpdate(
+    run: IDiscoveryRun,
+    observationVersion: number,
+  ): Promise<void> {
+    if (run.status === DISCOVERY_RUN_STATUS.COMPLETED) {
+      this.stopDiscoveryRunPolling();
+      await this.loadResults();
+
+      return;
+    }
+    if (run.status === DISCOVERY_RUN_STATUS.FAILED) {
+      this.stopDiscoveryRunPolling();
+      this.discoveryRunError.set('Discovery run ' + run.runId + ' failed'
+        + (run.failureMessage === undefined ? '.' : ': ' + run.failureMessage));
+
+      return;
+    }
+    this.scheduleDiscoveryRunPoll(run.runId, run.campaignId, observationVersion);
+  }
+
+  private scheduleDiscoveryRunPoll(
+    runId: string,
+    campaignId: string,
+    observationVersion: number,
+  ): void {
+    this.stopDiscoveryRunPolling();
+    this.discoveryRunPollingTimer = setTimeout(() => {
+      void this.pollDiscoveryRun(runId, campaignId, observationVersion);
+    }, 1000);
+  }
+
+  private async pollDiscoveryRun(
+    runId: string,
+    campaignId: string,
+    observationVersion: number,
+  ): Promise<void> {
+    if (!this.isCurrentDiscoveryRunObservation(observationVersion, campaignId)) {
+      return;
+    }
+
+    try {
+      const run = await this.api.getDiscoveryRun(runId);
+
+      if (!this.isCurrentDiscoveryRunObservation(observationVersion, campaignId)) {
+        return;
+      }
+      this.discoveryRun.set(run);
+      await this.handleDiscoveryRunUpdate(run, observationVersion);
+    } catch (error: unknown) {
+      if (this.isCurrentDiscoveryRunObservation(observationVersion, campaignId)) {
+        this.clearDiscoveryRunObservation();
+        this.discoveryRunError.set(error instanceof Error ? error.message : 'Discovery run status could not be loaded');
+      }
+    }
+  }
+
+  private isCurrentDiscoveryRunObservation(observationVersion: number, campaignId: string): boolean {
+    return observationVersion === this.discoveryRunObservationVersion
+      && campaignId === this.selectedCampaignId()
+      && this.activeTab() === ADMIN_TAB.DISCOVERY;
+  }
+
+  private stopDiscoveryRunPolling(): void {
+    if (this.discoveryRunPollingTimer !== undefined) {
+      clearTimeout(this.discoveryRunPollingTimer);
+      this.discoveryRunPollingTimer = undefined;
     }
   }
 }
@@ -290,6 +417,11 @@ function qualificationSortOptions(): readonly { readonly label: string; readonly
 
 function emptyPage<TItem>(): IPage<TItem> {
   return { items: [], limit: PAGE_SIZE, offset: 0, total: 0 };
+}
+
+function isPendingDiscoveryRun(run: IDiscoveryRun | undefined): boolean {
+  return run?.status === DISCOVERY_RUN_STATUS.ACCEPTED
+    || run?.status === DISCOVERY_RUN_STATUS.RUNNING;
 }
 
 function readStoredTab(): ADMIN_TAB {

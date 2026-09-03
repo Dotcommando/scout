@@ -27,8 +27,15 @@ export const DISCOVERY_OPERATION_RUN_REPOSITORY = Symbol('DISCOVERY_OPERATION_RU
 
 export interface IDiscoveryOperationRunRepositoryPort {
   claimNextAcceptedRun(claimedAt: Date): Promise<IDiscoveryOperationRun | undefined>;
+  findOldestRunningRun(): Promise<IDiscoveryOperationRun | undefined>;
   findByIdempotencyKey(campaignId: string, idempotencyKey: string): Promise<IDiscoveryOperationRun | undefined>;
   findRun(runId: string): Promise<IDiscoveryOperationRun | undefined>;
+  finishActiveCampaignRuns(
+    campaignId: string,
+    status: DISCOVERY_OPERATION_RUN_STATUS,
+    updatedAt: Date,
+    failureMessage?: string,
+  ): Promise<void>;
   listRuns(campaignId: string | undefined, offset: number, limit: number): Promise<IDiscoveryOperationRunPage>;
   saveRun(run: IDiscoveryOperationRun): Promise<void>;
   updateRunStatus(

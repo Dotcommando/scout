@@ -163,6 +163,14 @@ mat-select {
   transform-origin: right;
 }
 
+.run-error {
+  background: #64261f;
+  border-radius: 8px;
+  color: #ffdad6;
+  margin: 12px 0 0;
+  padding: 12px;
+}
+
 .lead-list {
   display: grid;
   gap: 12px;

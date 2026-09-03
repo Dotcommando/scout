@@ -25,6 +25,13 @@ export class MongoDiscoveryOperationRunRepository
     return (await this.collection.findOne({ campaignId, idempotencyKey })) ?? undefined;
   }
 
+  public async findOldestRunningRun(): Promise<IDiscoveryOperationRun | undefined> {
+    return (await this.collection.findOne(
+      { status: DISCOVERY_OPERATION_RUN_STATUS.RUNNING },
+      { sort: { createdAt: 1, runId: 1 } },
+    )) ?? undefined;
+  }
+
   public async claimNextAcceptedRun(claimedAt: Date): Promise<IDiscoveryOperationRun | undefined> {
     return (await this.collection.findOneAndUpdate(
       { status: DISCOVERY_OPERATION_RUN_STATUS.ACCEPTED },
@@ -35,6 +42,32 @@ export class MongoDiscoveryOperationRunRepository
 
   public async findRun(runId: string): Promise<IDiscoveryOperationRun | undefined> {
     return (await this.collection.findOne({ runId })) ?? undefined;
+  }
+
+  public async finishActiveCampaignRuns(
+    campaignId: string,
+    status: DISCOVERY_OPERATION_RUN_STATUS,
+    updatedAt: Date,
+    failureMessage?: string,
+  ): Promise<void> {
+    await this.collection.updateMany(
+      {
+        campaignId,
+        status: {
+          $in: [
+            DISCOVERY_OPERATION_RUN_STATUS.ACCEPTED,
+            DISCOVERY_OPERATION_RUN_STATUS.RUNNING,
+          ],
+        },
+      },
+      {
+        $set: {
+          ...(failureMessage === undefined ? {} : { failureMessage }),
+          status,
+          updatedAt,
+        },
+      },
+    );
   }
 
   public async listRuns(

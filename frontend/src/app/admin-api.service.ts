@@ -12,6 +12,13 @@ export enum SORT_DIRECTION {
   DESC = 'desc',
 }
 
+export enum DISCOVERY_RUN_STATUS {
+  ACCEPTED = 'accepted',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  RUNNING = 'running',
+}
+
 export interface IPage<TItem> {
   readonly items: readonly TItem[];
   readonly limit: number;
@@ -41,6 +48,13 @@ export interface IDiscoveryLead {
   readonly phoneNumber?: string;
   readonly sourceKind: string;
   readonly websiteUrl?: string;
+}
+
+export interface IDiscoveryRun {
+  readonly campaignId: string;
+  readonly failureMessage?: string;
+  readonly runId: string;
+  readonly status: DISCOVERY_RUN_STATUS;
 }
 
 export interface IQualificationMetric {
@@ -114,12 +128,16 @@ export class AdminApiService {
     await this.request('/' + tab + '/configurations', 'POST', payload);
   }
 
-  public async runDiscovery(campaignId: string, maximumProviderItems: number): Promise<void> {
-    await this.request('/discovery/runs', 'POST', {
+  public async runDiscovery(campaignId: string, maximumProviderItems: number): Promise<IDiscoveryRun> {
+    return parseDiscoveryRun(await this.request('/discovery/runs', 'POST', {
       campaignId,
       idempotencyKey: crypto.randomUUID(),
       maximumProviderItems,
-    });
+    }));
+  }
+
+  public async getDiscoveryRun(runId: string): Promise<IDiscoveryRun> {
+    return parseDiscoveryRun(await this.getJson('/discovery/runs/' + encodeURIComponent(runId)));
   }
 
   public async requalify(campaignId: string, leadId: string): Promise<void> {
@@ -160,6 +178,18 @@ export class AdminApiService {
 
 function parseConfigurationPage(input: unknown): IPage<IConfiguration> {
   return parsePage(input, parseConfiguration);
+}
+
+export function parseDiscoveryRun(input: unknown): IDiscoveryRun {
+  const record = readRecord(input, 'Discovery run');
+  const failureMessage = readOptionalString(record.failureMessage);
+
+  return {
+    campaignId: readString(record.campaignId, 'campaignId'),
+    ...(failureMessage === undefined ? {} : { failureMessage }),
+    runId: readString(record.runId, 'runId'),
+    status: readDiscoveryRunStatus(record.status),
+  };
 }
 
 function parseDiscoveryLeadPage(input: unknown): IPage<IDiscoveryLead> {
@@ -337,4 +367,15 @@ function readString(value: unknown, fieldPath: string): string {
   }
 
   return value;
+}
+
+function readDiscoveryRunStatus(value: unknown): DISCOVERY_RUN_STATUS {
+  if (value === DISCOVERY_RUN_STATUS.ACCEPTED
+    || value === DISCOVERY_RUN_STATUS.COMPLETED
+    || value === DISCOVERY_RUN_STATUS.FAILED
+    || value === DISCOVERY_RUN_STATUS.RUNNING) {
+    return value;
+  }
+
+  throw new Error('status must be a supported Discovery run status');
 }

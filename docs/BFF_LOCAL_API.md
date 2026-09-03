@@ -67,6 +67,16 @@ directions.
 Both page responses contain items, offset, limit, and total. The default order
 is date added descending with leadId as a stable tie-breaker.
 
+## Discovery Run observation
+
+`POST /api/v1/discovery/runs` returns `202` and the durable run resource,
+including `runId`, `campaignId`, and `status`. The console treats `accepted`
+and `running` as non-terminal, then requests
+`GET /api/v1/discovery/runs/{runId}` once per second. Only `completed` is a
+successful terminal state; `failed` may include a safe `failureMessage` for
+the operator. A client must not submit another manual Run while it observes
+the same pending run.
+
 ## Health
 
 `GET /health/live` checks the BFF process. `GET /health/ready` also checks

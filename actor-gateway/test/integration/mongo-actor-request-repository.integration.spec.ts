@@ -59,6 +59,21 @@ describe('Mongo Actor Gateway request persistence', () => {
     ).toBe(1);
   });
 
+  it('reconstructs the original execution input from a durable request', async () => {
+    const input = await repository.findRequestExecutionInput('request-a');
+
+    expect(input).toEqual({
+      actorDefinitionId: 'hotels-market',
+      actorRevision: 'revision-1',
+      cachePolicyRevision: 'cache-1',
+      canonicalInput: { checkIn: '2026-10-01' },
+      correlationId: 'correlation-1',
+      requestedAt: '2026-09-02T00:00:00.000Z',
+      schemaVersion: ACTOR_GATEWAY_SCHEMA_VERSION.V1,
+    });
+    expect(await repository.findRequestExecutionInput('missing')).toBeNull();
+  });
+
   it('archives every raw row and makes observed unused fields searchable', async () => {
     const content = new TextEncoder().encode(JSON.stringify([
       { amenities: ['pool'], type: 'property', unusedRoomCount: 12 },

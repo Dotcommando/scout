@@ -39,7 +39,8 @@ export class DiscoveryWorker {
     let operationRun: IDiscoveryOperationRun | undefined;
 
     try {
-      operationRun = await this.operationRunRepository?.claimNextAcceptedRun(new Date());
+      operationRun = await this.operationRunRepository?.findOldestRunningRun()
+        ?? await this.operationRunRepository?.claimNextAcceptedRun(new Date());
       const result = await this.discoveryWorkUseCase.advanceDiscoveryWork({
         correlationId,
         ...(operationRun === undefined ? {} : { maximumProviderItems: operationRun.maximumProviderItems }),
@@ -47,8 +48,8 @@ export class DiscoveryWorker {
       });
 
       if (operationRun !== undefined && isTerminalOutcome(result.outcome)) {
-        await this.operationRunRepository?.updateRunStatus(
-          operationRun.runId,
+        await this.operationRunRepository?.finishActiveCampaignRuns(
+          operationRun.campaignId,
           DISCOVERY_OPERATION_RUN_STATUS.COMPLETED,
           new Date(),
         );
@@ -68,8 +69,8 @@ export class DiscoveryWorker {
       return result.outcome;
     } catch (error: unknown) {
       if (operationRun !== undefined) {
-        await this.operationRunRepository?.updateRunStatus(
-          operationRun.runId,
+        await this.operationRunRepository?.finishActiveCampaignRuns(
+          operationRun.campaignId,
           DISCOVERY_OPERATION_RUN_STATUS.FAILED,
           new Date(),
           error instanceof Error ? error.message : 'Unknown failure',

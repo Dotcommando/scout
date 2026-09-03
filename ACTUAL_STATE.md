@@ -145,7 +145,10 @@ Actor Gateway readiness verifies MongoDB; Discovery and Qualification readiness
 also verify RabbitMQ. Gateway archives complete gzip-compressed raw datasets in
 GridFS, protects exact request reuse with a persistent key, retains a checksum,
 and derives a JSON-Pointer field catalogue. Gateway request, archive manifest,
-and archive-content endpoints are versioned under `/v1/actor-requests`.
+and archive-content endpoints are versioned under `/v1/actor-requests`. A
+status read resumes a non-terminal persisted provider run from durable input;
+when a provider run ID already exists it reconciles that run rather than
+starting another one.
 
 The services use structured logs and propagate `correlationId` through the
 Discovery-to-Qualification event and Actor Gateway requests.
@@ -173,7 +176,13 @@ URL read from `frontend/public/runtime-config.js`; local Compose CORS allows
 the two loopback console origins. The console displays stage-specific
 configuration lists and creation dialogs, paginated Lead cards, owner-side
 sorting, Discovery Run actions, and Qualification Requalify actions. It never
-contacts service, persistence, actor, or provider endpoints directly.
+contacts service, persistence, actor, or provider endpoints directly. A
+manual Discovery Run is observed through its durable BFF run resource once per
+second until it completes or fails. Pending Run controls are disabled; a
+failure is shown with the owner-provided safe message and remains retryable.
+When a manual run stays pending across worker ticks, Discovery keeps its
+operation context and completes all coalesced active runs when that campaign
+work reaches a terminal result.
 
 ## Deferred Operational Work
 

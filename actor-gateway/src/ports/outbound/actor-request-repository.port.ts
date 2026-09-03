@@ -1,6 +1,7 @@
 import {
   IActorGatewayArchiveManifest,
   IActorGatewayRequestStatus,
+  IActorGatewayResolveRequest,
 } from '@scout/contracts';
 
 import { ICanonicalActorRequest } from '../../domain/actor/actor-request.js';
@@ -57,6 +58,9 @@ export interface IActorRequestRepositoryPort {
   findRequestStatus(
     requestId: string,
   ): Promise<IActorGatewayRequestStatus | null>;
+  findRequestExecutionInput(
+    requestId: string,
+  ): Promise<IActorGatewayResolveRequest | null>;
   findObservedFields(
     actorDefinitionId: string,
     pathFragment: string,
