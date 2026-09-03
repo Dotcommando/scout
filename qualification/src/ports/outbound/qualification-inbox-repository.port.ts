@@ -14,5 +14,6 @@ export interface IQualificationInboxRecord {
 }
 
 export interface IQualificationInboxRepositoryPort {
+  findInput(campaignId: string, leadId: string): Promise<IQualificationInboxRecord | undefined>;
   recordInput(input: IQualificationInboxRecord): Promise<void>;
 }

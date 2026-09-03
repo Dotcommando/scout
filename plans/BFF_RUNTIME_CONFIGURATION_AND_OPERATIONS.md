@@ -675,7 +675,7 @@ affiliation-catalogue revisions.
 
 ## Step 8 — Expose Qualification configuration CRUD through service and BFF APIs
 
-**Status:** In Progress
+**Status:** Done
 
 ### Objective
 
@@ -715,9 +715,26 @@ concurrency while referenced decisions remain reproducible and immutable.
 - Qualification configuration management reaches application logic only through
   service-owned HTTP adapters and ports.
 
+### Done
+
+- Added immutable, versioned Qualification configuration records, a MongoDB
+  repository with unique campaign/revision and active-revision indexes, and
+  application ports/use cases for paginated listing, creation, replacement,
+  activation, and atomic archive validation. Activation refreshes the
+  Qualification runtime resolver without restarting the service.
+- The known-affiliation catalogue remains explicitly seed-only; bundles must
+  reference its current immutable revision and cannot embed catalogue edits.
+  The Qualification controller and BFF are thin HTTP adapters over their
+  service-owned ports.
+- Verified Qualification and BFF lint, strict typecheck, tests, and builds.
+  Mandatory Architecture Gate: inspected new imports with `rg`; application
+  services import only domain/application models and ports, MongoDB appears
+  only in outbound adapters, and BFF uses only its typed Qualification HTTP
+  client with no persistence dependency.
+
 ## Step 9 — Add Qualification execution control and campaign status
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -769,9 +786,23 @@ execution resource without direct access to Discovery persistence.
   denominator and time snapshot.
 - Individual qualification requests are safe, idempotent, and service-owned.
 
+### Done
+
+- Added a Qualification-owned inbox lookup, deterministic execution IDs, a
+  manual execution request use case, execution history/detail read model, and
+  campaign status endpoint. Manual requests resolve only the durable inbox
+  snapshot; repeated requests use the existing execution identity and output
+  uniqueness guarantees.
+- Status returns a persisted `asOf` query snapshot and defines `remaining` as
+  unique inbox Lead IDs without a decision for the selected profile revision.
+- Verified Qualification lint, strict typecheck, unit/integration tests, and
+  build. Mandatory Architecture Gate: the execution application services use
+  inbound/outbound ports only; RabbitMQ, MongoDB and Actor Gateway remain in
+  their adapters, and HTTP controllers only validate/map requests.
+
 ## Step 10 — Add paginated qualified-Lead and metric query APIs
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -814,9 +845,23 @@ cross-service database join.
   availability/evidence states.
 - Pagination and newest-first ordering are deterministic and documented.
 
+### Done
+
+- Added Qualification-owned qualified Lead pages and Lead detail views. The
+  Mongo read model joins only Qualification decisions with enrichment snapshots
+  and returns the original Lead snapshot, reason codes, profile references,
+  metrics/evidence, timestamps, and explicit enrichment state.
+- Pagination returns `offset`, `limit`, `total`, and `asOf`, with
+  `recordedAt DESC, leadId ASC` ordering. Missing snapshots are `pending` and
+  are never converted into fabricated metric values.
+- Verified Qualification and BFF lint, strict typecheck, tests, and builds.
+  Mandatory Architecture Gate: projection queries are confined to the
+  Qualification Mongo adapter and BFF requests travel only through typed local
+  service clients.
+
 ## Step 11 — Complete the local BFF edge and operational contract
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -864,6 +909,63 @@ results entirely through BFF routes with consistent HTTP semantics.
 - The future frontend needs no direct service database or provider access.
 - Local operations work through one documented BFF API surface.
 - Restart and dependency-failure behavior is observable and recoverable.
+
+### Done
+
+- Completed BFF facades for Qualification management, commands, status,
+  execution history/detail, qualified Lead pages, and Lead detail; added the
+  local API reference at `docs/BFF_LOCAL_API.md`. BFF correlation IDs are
+  accepted or generated and forwarded to Qualification.
+- Fixed Compose wiring to pass the mandatory Discovery business timezone and
+  bound all local debug ports, not just BFF, to loopback. `docker compose
+  config --quiet` passed; rebuilt/recreated the affected topology and verified
+  Discovery, Qualification, and BFF readiness plus BFF Qualification
+  configuration/status/execution/list routes.
+- Verified lint, strict typecheck, tests, and builds for BFF, Discovery,
+  Qualification, Actor Gateway, and contracts. Mandatory Architecture Gate:
+  targeted import inspection confirms domain layers have no framework or
+  infrastructure imports, application services have only domain/port imports,
+  controllers delegate to ports, and BFF contains no MongoDB or service
+  persistence dependency.
+
+## Step 12 — Close the Actor Gateway configuration boundary
+
+**Status:** Done
+
+### Objective
+
+Remove the existing Actor Gateway application-layer import of an inbound
+configuration adapter discovered by the final mandatory architecture review.
+
+### Observable result
+
+Actor Gateway resolves enabled actor definitions through an outbound port while
+the configuration registry remains an adapter implementation.
+
+### Implementation
+
+1. Add a narrow actor-definition registry port owned by Actor Gateway.
+2. Adapt the existing registry through that port and compose it in bootstrap.
+3. Update the execution service and its fixture test.
+
+### Verification
+
+- Run Actor Gateway lint, strict typecheck, tests, and build.
+- Re-run the mandatory targeted import checks for every service and BFF.
+
+### DoD
+
+- No application layer imports a concrete inbound/outbound adapter.
+
+### Done
+
+- Added the narrow actor-definition registry port and injected the existing
+  configuration registry through bootstrap composition; Actor execution now
+  depends on the port instead of an inbound adapter.
+- Verified Actor Gateway lint, strict typecheck, all tests, and build. The
+  final `rg` architecture review produced no prohibited framework,
+  infrastructure, adapter, YAML/file, or BFF imports in any domain or
+  application layer, and found no MongoDB/service-database access in BFF.
 
 # Corner Cases and Product Decisions
 

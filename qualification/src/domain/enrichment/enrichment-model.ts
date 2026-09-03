@@ -19,6 +19,15 @@ export enum ENRICHMENT_METRIC_KIND {
 
 export const ENRICHMENT_METRIC_KIND_ARRAY = Object.values(ENRICHMENT_METRIC_KIND);
 
+export enum ENRICHMENT_STATE {
+  AVAILABLE = 'available',
+  FAILED = 'failed',
+  PENDING = 'pending',
+  UNAVAILABLE = 'unavailable',
+}
+
+export const ENRICHMENT_STATE_ARRAY = Object.values(ENRICHMENT_STATE);
+
 export enum FULL_SERVICE_HOTEL_SIGNAL {
   FULL_SERVICE = 'FULL_SERVICE',
   LIMITED_SERVICE = 'LIMITED_SERVICE',

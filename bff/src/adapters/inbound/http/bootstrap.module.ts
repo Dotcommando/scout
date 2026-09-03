@@ -11,6 +11,7 @@ import { DiscoveryConfigurationController } from './discovery-configuration.cont
 import { DiscoveryRunController } from './discovery-run.controller.js';
 import { HealthController } from './health.controller.js';
 import { QualificationConfigurationController } from './qualification-configuration.controller.js';
+import { QualificationOperationsController } from './qualification-operations.controller.js';
 
 @Module({
   controllers: [
@@ -18,6 +19,7 @@ import { QualificationConfigurationController } from './qualification-configurat
     DiscoveryRunController,
     HealthController,
     QualificationConfigurationController,
+    QualificationOperationsController,
   ],
   providers: [
     BffRuntimeConfiguration,

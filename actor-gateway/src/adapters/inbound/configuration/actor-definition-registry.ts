@@ -1,3 +1,7 @@
+import { Injectable } from '@nestjs/common';
+
+import { IActorDefinitionPort, IActorDefinitionRegistryPort } from '../../../ports/outbound/actor-definition-registry.port.js';
+
 export enum ACTOR_PROVIDER_KIND {
   APIFY = 'APIFY',
 }
@@ -42,4 +46,11 @@ export function getActorDefinition(
   }
 
   return definition;
+}
+
+@Injectable()
+export class ActorDefinitionRegistry implements IActorDefinitionRegistryPort {
+  public findEnabledDefinition(actorDefinitionId: string, actorRevision: string): IActorDefinitionPort {
+    return getActorDefinition(actorDefinitionId, actorRevision);
+  }
 }

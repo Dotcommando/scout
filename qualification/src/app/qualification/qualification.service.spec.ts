@@ -147,6 +147,14 @@ class FakeProfileConfiguration implements IQualificationProfileConfigurationPort
 class FakeInboxRepository implements IQualificationInboxRepositoryPort {
   public readonly records: IQualificationInboxRecord[] = [];
 
+  public async findInput(
+    campaignId: string,
+    leadId: string,
+  ): Promise<IQualificationInboxRecord | undefined> {
+    return this.records.find((record) => record.campaignId === campaignId
+      && record.lead.leadId === leadId);
+  }
+
   public async recordInput(input: IQualificationInboxRecord): Promise<void> {
     if (!this.records.some((record) => record.eventId === input.eventId)) {
       this.records.push(input);

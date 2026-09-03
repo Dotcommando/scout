@@ -67,6 +67,11 @@ export class QualificationService implements IQualifyLeadUseCase {
     const claimOutcome = await this.executionRepository.claimExecution({
       campaignId: input.campaignId,
       claimedAt: input.occurredAt,
+      executionId: createQualificationExecutionId(
+        input.campaignId,
+        input.lead.leadId,
+        profile.version,
+      ),
       leadId: input.lead.leadId,
       profileVersion: profile.version,
       staleClaimBefore: new Date(
@@ -173,4 +178,16 @@ function createQualifiedLeadOutputId(
     .digest('hex');
 
   return `qualified-lead-output-${hash}`;
+}
+
+function createQualificationExecutionId(
+  campaignId: string,
+  leadId: string,
+  profileVersion: number,
+): string {
+  const hash = createHash('sha256')
+    .update(`${campaignId}\u0000${leadId}\u0000${profileVersion}`)
+    .digest('hex');
+
+  return `qualification-execution-${hash}`;
 }

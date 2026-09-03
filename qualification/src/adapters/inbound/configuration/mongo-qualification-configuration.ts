@@ -1,50 +1,32 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { Collection } from 'mongodb';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 
+import {
+  createQualificationConfiguration,
+  IQualificationConfiguration,
+} from '../../../app/qualification/qualification-configuration.js';
 import { IKnownAffiliationCatalog } from '../../../domain/qualification/known-affiliation-catalog.js';
 import { IQualificationProfile } from '../../../domain/qualification/qualification-model.js';
 import { IKnownAffiliationCatalogConfigurationPort } from '../../../ports/outbound/known-affiliation-catalog-configuration.port.js';
+import type { IQualificationConfigurationRepositoryPort } from '../../../ports/outbound/qualification-configuration-repository.port.js';
+import { QUALIFICATION_CONFIGURATION_REPOSITORY } from '../../../ports/outbound/qualification-configuration-repository.port.js';
+import { IQualificationConfigurationRuntimePort } from '../../../ports/outbound/qualification-configuration-runtime.port.js';
 import { IQualificationEnrichmentConfiguration, IQualificationEnrichmentConfigurationPort } from '../../../ports/outbound/qualification-enrichment-configuration.port.js';
 import { IQualificationProfileConfigurationPort } from '../../../ports/outbound/qualification-profile-configuration.port.js';
-import { MongoDatabaseClient } from '../../outbound/mongodb/mongo-database-client.js';
 import { loadKnownAffiliationCatalog } from './known-affiliation-catalog-configuration.js';
 import { loadQualificationEnrichmentConfiguration } from './qualification-enrichment-configuration.js';
 import { loadQualificationProfileConfiguration } from './qualification-profile-configuration.js';
 
-export enum QUALIFICATION_CONFIGURATION_LIFECYCLE {
-  ACTIVE = 'active',
-}
-
-interface IQualificationConfigurationDocument {
-  readonly campaignId: string;
-  readonly catalog: IKnownAffiliationCatalog;
-  readonly createdAt: Date;
-  readonly enrichment: IQualificationEnrichmentConfiguration;
-  readonly lifecycle: QUALIFICATION_CONFIGURATION_LIFECYCLE;
-  readonly profile: IQualificationProfile;
-  readonly updatedAt: Date;
-}
-
-export interface IQualificationConfigurationPage {
-  readonly items: readonly IQualificationConfigurationDocument[];
-  readonly total: number;
-}
-
 @Injectable()
 export class MongoQualificationConfiguration
-  implements
-    IKnownAffiliationCatalogConfigurationPort,
-    IQualificationEnrichmentConfigurationPort,
-    IQualificationProfileConfigurationPort,
-    OnModuleInit {
-  private readonly collection: Collection<IQualificationConfigurationDocument>;
+  implements IKnownAffiliationCatalogConfigurationPort, IQualificationEnrichmentConfigurationPort, IQualificationProfileConfigurationPort, IQualificationConfigurationRuntimePort, OnModuleInit {
   private catalog: IKnownAffiliationCatalog | undefined;
   private readonly enrichments = new Map<string, IQualificationEnrichmentConfiguration>();
   private readonly profiles = new Map<string, IQualificationProfile>();
 
-  public constructor(mongoDatabaseClient: MongoDatabaseClient) {
-    this.collection = mongoDatabaseClient.getDatabase().collection('qualification_configurations');
-  }
+  public constructor(
+    @Inject(QUALIFICATION_CONFIGURATION_REPOSITORY)
+    private readonly configurationRepository: IQualificationConfigurationRepositoryPort,
+  ) {}
 
   public getCatalog(): IKnownAffiliationCatalog {
     if (this.catalog === undefined) {
@@ -52,6 +34,12 @@ export class MongoQualificationConfiguration
     }
 
     return this.catalog;
+  }
+
+  public activateConfiguration(configuration: IQualificationConfiguration): void {
+    this.profiles.set(configuration.campaignId, configuration.profile);
+    this.enrichments.set(configuration.campaignId, configuration.enrichment);
+    this.catalog = configuration.catalog;
   }
 
   public getConfiguration(campaignId: string): IQualificationEnrichmentConfiguration {
@@ -74,68 +62,47 @@ export class MongoQualificationConfiguration
     return profile;
   }
 
-  public async getConfigurations(
-    offset: number,
-    limit: number,
-  ): Promise<IQualificationConfigurationPage> {
-    const [items, total] = await Promise.all([
-      this.collection.find({ lifecycle: QUALIFICATION_CONFIGURATION_LIFECYCLE.ACTIVE })
-        .sort({ campaignId: 1 })
-        .skip(offset)
-        .limit(limit)
-        .toArray(),
-      this.collection.countDocuments({ lifecycle: QUALIFICATION_CONFIGURATION_LIFECYCLE.ACTIVE }),
-    ]);
-
-    return { items, total };
-  }
-
   public async onModuleInit(): Promise<void> {
-    await this.collection.createIndex(
-      { campaignId: 1, lifecycle: 1 },
-      {
-        name: 'active_campaign_configuration_unique',
-        partialFilterExpression: { lifecycle: QUALIFICATION_CONFIGURATION_LIFECYCLE.ACTIVE },
-        unique: true,
-      },
-    );
-    const existing = await this.collection.find({
-      lifecycle: QUALIFICATION_CONFIGURATION_LIFECYCLE.ACTIVE,
-    }).toArray();
-    const documents = existing.length === 0 ? await this.seedConfiguration() : existing;
+    const initial = await this.loadOrSeedConfigurations();
 
-    for (const document of documents) {
-      this.profiles.set(document.campaignId, document.profile);
-      this.enrichments.set(document.campaignId, document.enrichment);
-      this.catalog = document.catalog;
+    for (const configuration of initial) {
+      this.activateConfiguration(configuration);
     }
   }
 
-  private async seedConfiguration(): Promise<readonly IQualificationConfigurationDocument[]> {
-    const profileConfiguration = loadQualificationProfileConfiguration();
-    const enrichmentConfigurations = loadQualificationEnrichmentConfiguration();
+  private async loadOrSeedConfigurations(): Promise<readonly IQualificationConfiguration[]> {
+    const existing = await this.configurationRepository.findConfigurations(0, 100);
+    const active = existing.items.filter((item) => item.lifecycle === 'active');
+
+    if (active.length > 0) {
+      return active;
+    }
+
+    const profiles = loadQualificationProfileConfiguration().profiles;
+    const enrichments = loadQualificationEnrichmentConfiguration();
     const catalog = loadKnownAffiliationCatalog();
-    const createdAt = new Date();
-    const documents = profileConfiguration.profiles.map((profile) => {
-      const enrichment = enrichmentConfigurations.get(profile.campaignId);
+    const seededAt = new Date();
+
+    return Promise.all(profiles.map(async (profile) => {
+      const enrichment = enrichments.get(profile.campaignId);
 
       if (enrichment === undefined) {
         throw new Error(`No enrichment configuration exists for campaign: ${profile.campaignId}`);
       }
 
-      return {
-        campaignId: profile.campaignId,
-        catalog,
-        createdAt,
-        enrichment,
-        lifecycle: QUALIFICATION_CONFIGURATION_LIFECYCLE.ACTIVE,
-        profile,
-        updatedAt: createdAt,
-      };
-    });
-
-    await this.collection.insertMany(documents, { ordered: true });
-
-    return documents;
+      return this.configurationRepository.seedActiveConfiguration(
+        createQualificationConfiguration({
+          campaignId: profile.campaignId,
+          catalogRevision: catalog.revision,
+          enrichment,
+          excludedSourceIdentities: profile.excludedSourceIdentities,
+          excludedWebsiteHosts: profile.excludedWebsiteHosts,
+          ...(profile.knownAffiliationScopes === undefined ? {} : { knownAffiliationScopes: profile.knownAffiliationScopes }),
+          profileId: profile.profileId,
+          requirements: profile.requirements,
+        }, profile.version, catalog),
+        seededAt,
+      );
+    }));
   }
 }

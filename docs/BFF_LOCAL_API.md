@@ -1,0 +1,53 @@
+# Local BFF API
+
+The BFF is the intended local browser entry point at `http://127.0.0.1:3000`.
+It is deliberately unauthenticated and must not be exposed outside a trusted
+development machine. Service, MongoDB, and RabbitMQ ports exist for local
+debugging only and bypass the future authorization boundary.
+
+All application routes use `/api/v1`. Supply `X-Correlation-Id` on an
+operator request when tracing it across services; the BFF generates one when
+it is absent. List responses use `items`, `offset`, `limit`, and `total`.
+
+## Qualification configuration
+
+`GET /api/v1/qualification/configurations?offset=0&limit=50` lists immutable
+revisions. `POST` creates a draft, `PUT /{campaignId}` creates the next draft
+with `expectedVersion`, `POST /{campaignId}/activate` activates a draft, and
+`DELETE` archives a non-active batch using `{ "campaignIds": ["..."] }`.
+
+The known-affiliation catalogue is seed-only in this release. A bundle must
+reference the active immutable `catalogRevision`; catalogue edits are not
+accepted through campaign configuration requests.
+
+```powershell
+Invoke-RestMethod 'http://127.0.0.1:3000/api/v1/qualification/configurations?offset=0&limit=50'
+```
+
+## Qualification operations
+
+`POST /api/v1/qualification/executions` accepts `campaignId`, `leadId`, and
+optional `profileVersion` and `idempotencyKey`, returning `202` with the
+durable execution identity. The Lead must already be in Qualification's
+inbox; Discovery data is never read directly.
+
+`GET /api/v1/qualification/status?campaignId=...&profileVersion=...` returns
+the persisted snapshot counts and `asOf`. `remaining` is the number of unique
+Qualification inbox Leads without a terminal decision for that profile.
+
+`GET /api/v1/qualification/executions`, `/executions/{executionId}`,
+`/qualified-leads`, and `/leads/{leadId}` provide troubleshooting and result
+views. Qualified result pages are ordered by `recordedAt DESC, leadId ASC`.
+Each Lead view returns an explicit enrichment state; a missing snapshot is
+`pending`, never a fabricated metric value.
+
+```powershell
+Invoke-RestMethod 'http://127.0.0.1:3000/api/v1/qualification/status?campaignId=europe-gb-ie&profileVersion=1'
+```
+
+## Health
+
+`GET /health/live` checks the BFF process. `GET /health/ready` also checks
+Discovery and Qualification readiness, so it returns unavailable while either
+dependency is down. The services retain their own `/health/live` and
+`/health/ready` endpoints for operations.

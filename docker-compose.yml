@@ -7,7 +7,7 @@ services:
       timeout: 5s
       retries: 12
     ports:
-      - '${MONGODB_PORT}:27017'
+      - '127.0.0.1:${MONGODB_PORT}:27017'
     volumes:
       - mongodb_data:/data/db
 
@@ -19,7 +19,7 @@ services:
       timeout: 5s
       retries: 12
     ports:
-      - '${RABBITMQ_PORT}:5672'
+      - '127.0.0.1:${RABBITMQ_PORT}:5672'
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
@@ -35,7 +35,7 @@ services:
       ACTOR_GATEWAY_MONGODB_URI: mongodb://mongodb:27017/scout_actor_gateway
       ACTOR_GATEWAY_PORT: '3003'
     ports:
-      - '${ACTOR_GATEWAY_PORT}:3003'
+      - '127.0.0.1:${ACTOR_GATEWAY_PORT}:3003'
     healthcheck:
       test: ['CMD', 'node', '-e', "fetch('http://localhost:3003/health/ready').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 5s
@@ -58,13 +58,14 @@ services:
       DISCOVERY_MONGODB_URI: mongodb://mongodb:27017/scout_discovery
       DISCOVERY_LIVE_ARTIFACT_DIRECTORY: /workspace/artifacts/discovery-live-executions
       DISCOVERY_PORT: '3001'
+      DISCOVERY_BUSINESS_TIMEZONE: ${DISCOVERY_BUSINESS_TIMEZONE}
       DISCOVERY_RABBITMQ_CONNECTION_TIMEOUT_MS: ${DISCOVERY_RABBITMQ_CONNECTION_TIMEOUT_MS}
       DISCOVERY_RABBITMQ_PREFETCH: ${DISCOVERY_RABBITMQ_PREFETCH}
       DISCOVERY_RABBITMQ_RETRY_DELAY_MS: ${DISCOVERY_RABBITMQ_RETRY_DELAY_MS}
       DISCOVERY_RABBITMQ_RETRY_MAX_ATTEMPTS: ${DISCOVERY_RABBITMQ_RETRY_MAX_ATTEMPTS}
       DISCOVERY_RABBITMQ_URI: amqp://rabbitmq:5672
     ports:
-      - '${DISCOVERY_PORT}:3001'
+      - '127.0.0.1:${DISCOVERY_PORT}:3001'
     volumes:
       - ./artifacts/discovery-live-executions:/workspace/artifacts/discovery-live-executions
       - ./config/discovery:/workspace/config/discovery:ro
@@ -90,7 +91,7 @@ services:
       QUALIFICATION_RABBITMQ_RETRY_MAX_ATTEMPTS: ${QUALIFICATION_RABBITMQ_RETRY_MAX_ATTEMPTS}
       QUALIFICATION_RABBITMQ_URI: amqp://rabbitmq:5672
     ports:
-      - '${QUALIFICATION_PORT}:3002'
+      - '127.0.0.1:${QUALIFICATION_PORT}:3002'
     volumes:
       - ./config/qualification:/workspace/config/qualification:ro
 

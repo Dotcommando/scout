@@ -4,7 +4,7 @@ This document describes implemented code and configured Docker Compose
 topology. It is not a roadmap: planned work is listed separately so it cannot
 be mistaken for an implemented capability.
 
-Last reviewed against the repository: 2026-09-02.
+Last reviewed against the repository: 2026-09-03.
 
 ## Runtime Topology
 
@@ -19,12 +19,18 @@ Discovery -- AMQP discovered-lead event --> Qualification
 Discovery ----> Actor Gateway ----> Apify actors
 Qualification -> Actor Gateway
 Actor Gateway -> scout_actor_gateway (request cache, runs, archives, field catalogue)
+Browser (local) -> BFF -> Discovery and Qualification HTTP APIs
 ```
 
-Docker Compose defines five containers: `mongodb`, `rabbitmq`, `actor-gateway`,
-`discovery`, and `qualification`. MongoDB contains one database per service:
+Docker Compose defines six containers: `mongodb`, `rabbitmq`, `actor-gateway`,
+`discovery`, `qualification`, and `bff`. MongoDB data and RabbitMQ data use
+named volumes and survive ordinary Compose recreation. MongoDB contains one database per service:
 `scout_actor_gateway`, `scout_discovery`, and `scout_qualification`. No service
 reads or writes another service's database.
+
+All host ports are loopback-only. The no-auth BFF at `127.0.0.1:3000` is the
+intended browser entry point; direct service and infrastructure ports exist
+only for local troubleshooting.
 
 ## Discovery
 
@@ -82,7 +88,9 @@ affiliation rules.
 ### Inputs
 
 - The versioned discovered-lead event from RabbitMQ.
-- Qualification profile and known-affiliation configuration for the campaign.
+- A Qualification-owned active immutable configuration revision for the
+  campaign. Bootstrap YAML is used only to seed an empty local database;
+  runtime policy thereafter comes from `scout_qualification`.
 - Runtime configuration: its MongoDB and RabbitMQ connections and consumer
 retry settings.
 
@@ -106,6 +114,11 @@ retry settings.
   Market Price Position, Monetisable Asset Count, Full-Service Hotel Signal,
   and Market Value Proxy. A missing match or field is stored as `UNAVAILABLE`,
   never as zero or a commercial decision.
+- Exposes local HTTP configuration revision management, a manual execution
+  command that resolves only its own inbox snapshot, campaign status, execution
+  history/detail, qualified Lead pages, and Lead detail. Qualified pages use
+  `recordedAt DESC, leadId ASC`, return offset/limit/total and `asOf`, and show
+  enrichment state rather than default metric values.
 
 ### RabbitMQ handling
 
@@ -136,6 +149,15 @@ and archive-content endpoints are versioned under `/v1/actor-requests`.
 
 The services use structured logs and propagate `correlationId` through the
 Discovery-to-Qualification event and Actor Gateway requests.
+
+## BFF
+
+The independently deployable BFF owns no MongoDB client or service business
+data. It forwards versioned local HTTP requests to Discovery and Qualification,
+propagates `X-Correlation-Id`, provides local CORS, and reports liveness
+separately from dependency readiness. Its documented surface is
+`docs/BFF_LOCAL_API.md`; it includes Qualification configuration CRUD,
+execution commands, status, and qualified-Lead query routes under `/api/v1`.
 
 ## Deferred Operational Work
 

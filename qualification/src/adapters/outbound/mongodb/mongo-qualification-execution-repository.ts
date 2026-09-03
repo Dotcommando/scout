@@ -14,6 +14,7 @@ interface IQualificationExecutionDocument {
   readonly campaignId: string;
   readonly claimedAt?: Date;
   readonly completedAt?: Date;
+  readonly executionId: string;
   readonly leadId: string;
   readonly profileVersion: number;
   readonly status: QUALIFICATION_EXECUTION_STATUS;
@@ -38,6 +39,7 @@ export class MongoQualificationExecutionRepository
       await this.collection.insertOne({
         campaignId: input.campaignId,
         claimedAt: input.claimedAt,
+        executionId: input.executionId,
         leadId: input.leadId,
         profileVersion: input.profileVersion,
         status: QUALIFICATION_EXECUTION_STATUS.PROCESSING,
@@ -126,5 +128,6 @@ export class MongoQualificationExecutionRepository
         unique: true,
       },
     );
+    await this.collection.createIndex({ executionId: 1 }, { name: 'qualification_execution_id_unique', unique: true });
   }
 }

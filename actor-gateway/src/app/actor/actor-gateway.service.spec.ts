@@ -6,6 +6,7 @@ import {
 } from '@scout/contracts';
 
 import { ICanonicalActorRequest } from '../../domain/actor/actor-request.js';
+import { IActorDefinitionRegistryPort } from '../../ports/outbound/actor-definition-registry.port.js';
 import { ACTOR_PROVIDER_RUN_STATUS } from '../../ports/outbound/actor-provider.port.js';
 import {
   ACTOR_EXECUTION_CLAIM_OUTCOME,
@@ -150,6 +151,12 @@ class FakeActorRequestRepository implements IActorRequestRepositoryPort {
   }
 }
 
+class FakeActorDefinitionRegistry implements IActorDefinitionRegistryPort {
+  public findEnabledDefinition(): { readonly actorId: string } {
+    return { actorId: 'fixture-actor' };
+  }
+}
+
 describe('ActorGatewayService', () => {
   it('creates an explicit pending request status', async () => {
     const service = new ActorGatewayService(new FakeActorRequestRepository());
@@ -224,7 +231,7 @@ describe('ActorGatewayService', () => {
           status: ACTOR_PROVIDER_RUN_STATUS.SUCCEEDED,
         };
       },
-    }, repository);
+    }, new FakeActorDefinitionRegistry(), repository);
     const result = await new ActorGatewayService(repository, executor).resolveRequest({
       actorDefinitionId: 'google-maps-search',
 actorRevision: 'latest',

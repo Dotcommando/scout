@@ -21,6 +21,16 @@ export class MongoQualificationInboxRepository
       { eventId: 1 },
       { name: 'qualification_event_id_unique', unique: true },
     );
+    await this.collection.createIndex(
+      { campaignId: 1, 'lead.leadId': 1 },
+      { name: 'qualification_campaign_lead_inbox' },
+    );
+  }
+
+  public async findInput(campaignId: string, leadId: string): Promise<IQualificationInboxRecord | undefined> {
+    const input = await this.collection.findOne({ campaignId, 'lead.leadId': leadId });
+
+    return input === null ? undefined : input;
   }
 
   public async recordInput(input: IQualificationInboxRecord): Promise<void> {

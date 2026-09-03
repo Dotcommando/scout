@@ -4,7 +4,7 @@ import {
   IActorGatewayResolveRequest,
 } from '@scout/contracts';
 
-import { getActorDefinition } from '../../adapters/inbound/configuration/actor-definition-registry.js';
+import { IActorDefinitionRegistryPort } from '../../ports/outbound/actor-definition-registry.port.js';
 import {
   ACTOR_PROVIDER_RUN_STATUS,
   ActorProviderError,
@@ -21,6 +21,7 @@ const EXECUTION_CLAIM_STALE_MILLISECONDS = 5 * 60 * 1000;
 export class ActorExecutionService {
   public constructor(
     private readonly actorProvider: IActorProviderPort,
+    private readonly actorDefinitionRegistry: IActorDefinitionRegistryPort,
     private readonly actorRequestRepository: IActorRequestRepositoryPort,
   ) {}
 
@@ -55,7 +56,7 @@ export class ActorExecutionService {
       );
     }
 
-    const definition = getActorDefinition(
+    const definition = this.actorDefinitionRegistry.findEnabledDefinition(
       input.actorDefinitionId,
       input.actorRevision,
     );

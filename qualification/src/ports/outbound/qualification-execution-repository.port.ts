@@ -9,6 +9,7 @@ export enum QUALIFICATION_EXECUTION_CLAIM_OUTCOME {
 export interface IClaimQualificationExecutionInput {
   readonly campaignId: string;
   readonly claimedAt: Date;
+  readonly executionId: string;
   readonly leadId: string;
   readonly profileVersion: number;
   readonly staleClaimBefore: Date;
@@ -25,6 +26,7 @@ export interface ICompleteQualificationExecutionInput {
 
 export interface IQualificationExecutionRecord {
   readonly campaignId: string;
+  readonly executionId: string;
   readonly leadId: string;
   readonly profileVersion: number;
   readonly status: QUALIFICATION_EXECUTION_STATUS;
