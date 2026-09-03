@@ -369,7 +369,7 @@ service database.
 
 ## Step 3 — Persist and migrate revisioned Discovery configuration
 
-**Status:** Pending
+**Status:** Done
 
 ### Objective
 
@@ -412,6 +412,24 @@ Discovery run records the exact configuration revision/content hash it used.
 
 - Discovery does not read mutable campaign YAML at runtime.
 - Every operational run is reproducible from a durable configuration revision.
+
+### Done
+
+- Added a Discovery-owned MongoDB campaign-configuration repository with a
+  unique campaign/revision index and a partial one-active-revision-per-campaign
+  index. The HTTP runtime now resolves its active immutable configuration from
+  that repository; YAML is read only by the one-time seed path when no durable
+  configuration exists.
+- Persisted the existing content hash, revision, source, ordered scopes and
+  quota limits. Existing scope state and backfill records continue to retain the
+  selected configuration hash for reproducibility.
+- Ran Discovery lint, strict typecheck, unit/integration tests and build. A
+  Compose migration/restart check proved the current YAML seeded exactly one
+  active configuration document and did not create another after restart.
+- Mandatory Architecture Gate: targeted import checks found no prohibited
+  infrastructure imports in Discovery domain/application layers. MongoDB remains
+  in the outbound repository; the configuration resolver is an inbound adapter
+  depending only on its configuration repository port.
 
 ## Step 4 — Expose Discovery configuration CRUD through service and BFF APIs
 
